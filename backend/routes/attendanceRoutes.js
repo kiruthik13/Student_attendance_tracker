@@ -25,12 +25,20 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
     // Check if attendance already exists for this student on this date
     const existingAttendance = await Attendance.findByStudentAndDate(student, date || new Date());
     if (existingAttendance) {
-      return res.status(400).json({
-        message: 'Attendance already marked for this student on this date'
+      // Update the existing record
+      existingAttendance.status = status;
+      existingAttendance.remarks = remarks;
+      existingAttendance.markedBy = req.admin._id;
+      existingAttendance.updatedAt = new Date();
+      await existingAttendance.save();
+
+      return res.status(200).json({
+        message: 'Attendance updated successfully',
+        attendance: existingAttendance
       });
     }
 
-    // Create attendance record
+    // Create attendance record if not exists
     const attendance = new Attendance({
       student,
       date: date || new Date(),
@@ -48,13 +56,11 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
 
   } catch (error) {
     console.error('Mark attendance error:', error);
-    
     if (error.code === 11000) {
       return res.status(400).json({
         message: 'Attendance already marked for this student on this date'
       });
     }
-
     res.status(500).json({
       message: 'Failed to mark attendance'
     });
@@ -84,15 +90,22 @@ router.post('/bulk-mark', authenticateToken, requireActiveAdmin, validateBulkAtt
         // Check if attendance already exists
         const existingAttendance = await Attendance.findByStudentAndDate(record.student, attendanceDate);
         if (existingAttendance) {
+          // Update the existing record
+          existingAttendance.status = record.status;
+          existingAttendance.remarks = record.remarks;
+          existingAttendance.markedBy = req.admin._id;
+          existingAttendance.updatedAt = new Date();
+          await existingAttendance.save();
+
           results.push({
             student: record.student,
-            success: false,
-            message: 'Attendance already marked for this date'
+            success: true,
+            message: 'Attendance updated successfully'
           });
           continue;
         }
 
-        // Create attendance record
+        // Create attendance record if not exists
         const attendance = new Attendance({
           student: record.student,
           date: attendanceDate,
@@ -209,6 +222,39 @@ router.get('/class', authenticateToken, requireActiveAdmin, async (req, res) => 
     console.error('Get class attendance error:', error);
     res.status(500).json({
       message: 'Failed to fetch class attendance'
+    });
+  }
+});
+
+// PUT /api/attendance/mark/:id - Update attendance for a single student by attendance ID
+router.put('/mark/:id', authenticateToken, requireActiveAdmin, async (req, res) => {
+  try {
+    const { status, remarks } = req.body;
+    const attendanceId = req.params.id;
+
+    // Find attendance by ID
+    const attendance = await Attendance.findById(attendanceId);
+    if (!attendance) {
+      return res.status(404).json({
+        message: 'Attendance record not found'
+      });
+    }
+
+    // Update fields
+    if (status) attendance.status = status;
+    if (remarks !== undefined) attendance.remarks = remarks;
+    attendance.markedBy = req.admin._id;
+    attendance.updatedAt = new Date();
+    await attendance.save();
+
+    res.status(200).json({
+      message: 'Attendance updated successfully',
+      attendance
+    });
+  } catch (error) {
+    console.error('Update attendance error:', error);
+    res.status(500).json({
+      message: 'Failed to update attendance'
     });
   }
 });
