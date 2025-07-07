@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FaCalendar, FaChartBar, FaSearch, FaDownload, FaEye } from 'react-icons/fa';
+import { FaCalendar, FaUsers, FaDownload, FaFilter, FaChartBar } from 'react-icons/fa';
+import { API_ENDPOINTS } from '../../config/api';
 import './Attendance.css';
 
 const AttendanceReport = () => {
@@ -27,7 +28,7 @@ const AttendanceReport = () => {
   const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/classes/list', {
+      const response = await fetch(API_ENDPOINTS.STUDENT_CLASSES, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -46,7 +47,7 @@ const AttendanceReport = () => {
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/sections/list', {
+      const response = await fetch(API_ENDPOINTS.STUDENT_SECTIONS, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -73,7 +74,7 @@ const AttendanceReport = () => {
         date: selectedDate
       });
 
-      const response = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/class?${params}`, {
+      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_CLASS}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -330,7 +331,7 @@ const AttendanceReport = () => {
 
       {reports.length === 0 && !loading && selectedClass && selectedSection && selectedDate && (
         <div className="no-data">
-          <FaSearch />
+          <FaFilter />
           <p>No attendance records found for {selectedClass}-{selectedSection} on {selectedDate}</p>
         </div>
       )}

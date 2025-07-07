@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { FaGraduationCap, FaUsers, FaCalendarCheck, FaChartBar, FaSignOutAlt, FaUserPlus, FaClipboardList } from 'react-icons/fa';
+import { toast } from 'react-toastify';
+import { FaGraduationCap, FaUsers, FaCalendarCheck, FaChartBar, FaSignOutAlt, FaUserPlus, FaClipboardList, FaChartLine, FaPlus, FaList, FaUserGraduate } from 'react-icons/fa';
 import { MdDashboard, MdSchool, MdAssessment } from 'react-icons/md';
 import StudentList from '../Students/StudentList';
 import StudentForm from '../Students/StudentForm';
 import StudentDetail from '../Students/StudentDetail';
 import AttendanceMarking from '../Attendance/AttendanceMarking';
 import AttendanceReport from '../Attendance/AttendanceReport';
+import { API_ENDPOINTS } from '../../config/api';
 import './Dashboard.css';
 
 const AdminDashboard = () => {
@@ -27,10 +29,10 @@ const AdminDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const [studentsResponse, attendanceResponse] = await Promise.all([
-        fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students', {
+        fetch(API_ENDPOINTS.STUDENTS, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/today', {
+        fetch(API_ENDPOINTS.ATTENDANCE_TODAY, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);

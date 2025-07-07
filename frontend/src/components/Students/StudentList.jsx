@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye } from 'react-icons/fa';
+import { API_ENDPOINTS } from '../../config/api';
 import './Students.css';
 
 const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
@@ -29,7 +30,7 @@ const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
         isActive: activeFilter
       });
 
-      const response = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/students?${params}`, {
+      const response = await fetch(`${API_ENDPOINTS.STUDENTS}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -54,7 +55,7 @@ const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
   const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/classes/list', {
+      const response = await fetch(`${API_ENDPOINTS.STUDENT_CLASSES}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -73,7 +74,7 @@ const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/sections/list', {
+      const response = await fetch(`${API_ENDPOINTS.STUDENT_SECTIONS}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -96,7 +97,7 @@ const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/students/${studentId}`, {
+      const response = await fetch(`${API_ENDPOINTS.STUDENTS}/${studentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

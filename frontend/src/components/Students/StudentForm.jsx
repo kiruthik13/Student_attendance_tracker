@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { FaSave, FaTimes } from 'react-icons/fa';
+import { API_ENDPOINTS } from '../../config/api';
 import './Students.css';
 
 const StudentForm = ({ student, onSave, onCancel }) => {
@@ -119,8 +120,8 @@ const StudentForm = ({ student, onSave, onCancel }) => {
     try {
       const token = localStorage.getItem('token');
       const url = student 
-        ? `https://student-attendance-tracker-1-n2l2.onrender.com/api/students/${student._id}`
-        : 'https://student-attendance-tracker-1-n2l2.onrender.com/api/students';
+        ? `${API_ENDPOINTS.STUDENTS}/${student._id}`
+        : API_ENDPOINTS.STUDENTS;
       
       const method = student ? 'PUT' : 'POST';
 

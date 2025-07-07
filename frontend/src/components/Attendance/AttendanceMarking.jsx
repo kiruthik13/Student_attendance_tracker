@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FaSave, FaCalendar, FaUsers, FaCheck, FaTimes, FaClock, FaMinus } from 'react-icons/fa';
+import { FaSave, FaCalendar, FaUsers, FaCheck, FaTimes, FaClock, FaMinus, FaEdit } from 'react-icons/fa';
+import { API_ENDPOINTS } from '../../config/api';
 import './Attendance.css';
 
 const AttendanceMarking = () => {
@@ -28,7 +29,7 @@ const AttendanceMarking = () => {
   const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/classes/list', {
+      const response = await fetch(API_ENDPOINTS.STUDENT_CLASSES, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -46,7 +47,7 @@ const AttendanceMarking = () => {
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/sections/list', {
+      const response = await fetch(API_ENDPOINTS.STUDENT_SECTIONS, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -72,7 +73,7 @@ const AttendanceMarking = () => {
         section: selectedSection,
         isActive: 'true'
       });
-      const studentsRes = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/students?${params}`, {
+      const studentsRes = await fetch(`${API_ENDPOINTS.STUDENTS}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -81,7 +82,7 @@ const AttendanceMarking = () => {
       const studentsData = studentsRes.ok ? await studentsRes.json() : { students: [] };
       setStudents(studentsData.students);
       // Fetch today's attendance for this class/section
-      const attendanceRes = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/class?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`, {
+      const attendanceRes = await fetch(`${API_ENDPOINTS.ATTENDANCE_CLASS}?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -141,7 +142,7 @@ const AttendanceMarking = () => {
       try {
         if (record.attendanceId) {
           // Update existing attendance
-          const res = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/${record.attendanceId}`, {
+          const res = await fetch(`${API_ENDPOINTS.ATTENDANCE_MARK}/${record.attendanceId}`, {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -161,7 +162,7 @@ const AttendanceMarking = () => {
           }
         } else {
           // Create new attendance
-          const res = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/mark', {
+          const res = await fetch(API_ENDPOINTS.ATTENDANCE_MARK, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
