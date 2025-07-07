@@ -119,8 +119,8 @@ const StudentForm = ({ student, onSave, onCancel }) => {
     try {
       const token = localStorage.getItem('token');
       const url = student 
-        ? `http://localhost:5000/api/students/${student._id}`
-        : 'http://localhost:5000/api/students';
+        ? `https://student-attendance-tracker-1-n2l2.onrender.com/api/students/${student._id}`
+        : 'https://student-attendance-tracker-1-n2l2.onrender.com/api/students';
       
       const method = student ? 'PUT' : 'POST';
 

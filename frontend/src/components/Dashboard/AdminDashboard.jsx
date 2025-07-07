@@ -27,10 +27,10 @@ const AdminDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const [studentsResponse, attendanceResponse] = await Promise.all([
-        fetch('http://localhost:5000/api/students', {
+        fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:5000/api/attendance/today', {
+        fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/today', {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);

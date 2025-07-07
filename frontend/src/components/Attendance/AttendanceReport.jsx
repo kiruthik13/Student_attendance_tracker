@@ -27,7 +27,7 @@ const AttendanceReport = () => {
   const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students/classes/list', {
+      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/classes/list', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -46,7 +46,7 @@ const AttendanceReport = () => {
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students/sections/list', {
+      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/sections/list', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -73,7 +73,7 @@ const AttendanceReport = () => {
         date: selectedDate
       });
 
-      const response = await fetch(`http://localhost:5000/api/attendance/class?${params}`, {
+      const response = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/class?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

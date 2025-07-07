@@ -57,7 +57,7 @@ const Login = ({ onSwitchToRegister }) => {
     setSuccessMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/admin/login', {
+      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/admin/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -29,7 +29,7 @@ const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
         isActive: activeFilter
       });
 
-      const response = await fetch(`http://localhost:5000/api/students?${params}`, {
+      const response = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/students?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -54,7 +54,7 @@ const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
   const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students/classes/list', {
+      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/classes/list', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -73,7 +73,7 @@ const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students/sections/list', {
+      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/sections/list', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -96,7 +96,7 @@ const StudentList = ({ onAddStudent, onEditStudent, onViewStudent }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${studentId}`, {
+      const response = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/students/${studentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

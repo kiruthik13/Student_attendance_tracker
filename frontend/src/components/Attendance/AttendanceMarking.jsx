@@ -28,7 +28,7 @@ const AttendanceMarking = () => {
   const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students/classes/list', {
+      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/classes/list', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -46,7 +46,7 @@ const AttendanceMarking = () => {
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students/sections/list', {
+      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/students/sections/list', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -72,7 +72,7 @@ const AttendanceMarking = () => {
         section: selectedSection,
         isActive: 'true'
       });
-      const studentsRes = await fetch(`http://localhost:5000/api/students?${params}`, {
+      const studentsRes = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/students?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -81,7 +81,7 @@ const AttendanceMarking = () => {
       const studentsData = studentsRes.ok ? await studentsRes.json() : { students: [] };
       setStudents(studentsData.students);
       // Fetch today's attendance for this class/section
-      const attendanceRes = await fetch(`http://localhost:5000/api/attendance/class?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`, {
+      const attendanceRes = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/class?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -141,7 +141,7 @@ const AttendanceMarking = () => {
       try {
         if (record.attendanceId) {
           // Update existing attendance
-          const res = await fetch(`http://localhost:5000/api/attendance/${record.attendanceId}`, {
+          const res = await fetch(`https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/${record.attendanceId}`, {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -161,7 +161,7 @@ const AttendanceMarking = () => {
           }
         } else {
           // Create new attendance
-          const res = await fetch('http://localhost:5000/api/attendance/mark', {
+          const res = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/attendance/mark', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
