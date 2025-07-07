@@ -15,15 +15,32 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 // Create Express app
 const app = express();
 
-// Middleware
+// CORS Configuration - Explicitly defined here
+const allowedOrigins = [
+  'https://student-attendance-tracker-gilt.vercel.app',
+  'https://student-attendance-tracker-1-n2l2.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+console.log('🚀 Allowed CORS origins:', allowedOrigins);
+
 app.use(cors({
-  origin: [
-    'https://student-attendance-tracker-gilt.vercel.app',
-    'https://student-attendance-tracker-1-n2l2.onrender.com',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ],
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('✅ CORS allowed for origin:', origin);
+      callback(null, true);
+    } else {
+      console.log('❌ CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -42,6 +59,16 @@ const connectDB = async () => {
 
 // Connect to database
 connectDB();
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({ 
+    message: 'CORS is working!',
+    allowedOrigins,
+    requestOrigin: req.headers.origin,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Routes
 app.use('/api/admin', adminRoutes);
