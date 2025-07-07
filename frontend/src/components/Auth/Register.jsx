@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaUser, FaLock, FaEye, FaEyeSlash, FaGraduationCap, FaCheck, FaTimes } from 'react-icons/fa';
 import { MdEmail, MdPerson } from 'react-icons/md';
+import { API_ENDPOINTS } from '../../config/api';
 import './Auth.css';
 
 const Register = ({ onSwitchToLogin }) => {
@@ -80,8 +81,8 @@ const Register = ({ onSwitchToLogin }) => {
     setIsLoading(true);
     setSuccessMessage('');
 
-    try {
-      const response = await fetch('http://localhost:5000/api/admin/register', {
+          try {
+        const response = await fetch(API_ENDPOINTS.ADMIN_REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

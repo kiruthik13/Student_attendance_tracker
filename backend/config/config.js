@@ -13,7 +13,7 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   
   // Frontend URL (for CORS)
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  frontendUrl: process.env.FRONTEND_URL || 'https://student-attendance-tracker-gilt.vercel.app',
   
   // Security
   bcryptSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12

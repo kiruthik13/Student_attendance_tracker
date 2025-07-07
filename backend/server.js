@@ -17,7 +17,12 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: config.frontendUrl,
+  origin: [
+    'https://student-attendance-tracker-gilt.vercel.app',
+    'https://student-attendance-tracker-1-n2l2.onrender.com',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
   credentials: true
 }));
 app.use(express.json());

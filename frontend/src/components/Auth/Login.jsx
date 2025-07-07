@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaUser, FaLock, FaEye, FaEyeSlash, FaGraduationCap } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
+import { API_ENDPOINTS } from '../../config/api';
 import './Auth.css';
 
 const Login = ({ onSwitchToRegister }) => {
@@ -56,8 +57,8 @@ const Login = ({ onSwitchToRegister }) => {
     setIsLoading(true);
     setSuccessMessage('');
 
-    try {
-      const response = await fetch('https://student-attendance-tracker-1-n2l2.onrender.com/api/admin/login', {
+          try {
+        const response = await fetch(API_ENDPOINTS.ADMIN_LOGIN, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
