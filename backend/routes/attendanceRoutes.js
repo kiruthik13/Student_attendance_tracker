@@ -172,10 +172,10 @@ router.get('/student/:studentId', authenticateToken, requireActiveAdmin, async (
   }
 });
 
-// GET /api/attendance/class - Get attendance for a class on a specific date
+// GET /api/attendance/class - Get attendance for a class on a specific date, with optional session and studentId filters
 router.get('/class', authenticateToken, requireActiveAdmin, async (req, res) => {
   try {
-    const { className, section, date } = req.query;
+    const { className, section, date, session, studentId } = req.query;
 
     if (!className || !section || !date) {
       return res.status(400).json({
@@ -184,13 +184,22 @@ router.get('/class', authenticateToken, requireActiveAdmin, async (req, res) => 
     }
 
     const attendanceDate = new Date(date);
-    const attendance = await Attendance.getClassAttendance(className, section, attendanceDate);
+    let attendance = await Attendance.getClassAttendance(className, section, attendanceDate);
 
     // Filter out null students (students not in the specified class/section)
-    const filteredAttendance = attendance.filter(a => a.student !== null);
+    attendance = attendance.filter(a => a.student !== null);
+
+    // Filter by session if provided
+    if (session && ['forenoon', 'afternoon'].includes(session)) {
+      attendance = attendance.filter(a => a.session === session);
+    }
+    // Filter by studentId if provided
+    if (studentId) {
+      attendance = attendance.filter(a => a.student && a.student._id.toString() === studentId);
+    }
 
     res.json({
-      attendance: filteredAttendance,
+      attendance,
       date: attendanceDate,
       className,
       section

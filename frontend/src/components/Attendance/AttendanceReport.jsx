@@ -13,17 +13,21 @@ const AttendanceReport = () => {
   const [classes, setClasses] = useState([]);
   const [sections, setSections] = useState([]);
   const [reportType, setReportType] = useState('daily'); // daily, student, class
+  const [selectedSession, setSelectedSession] = useState('');
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState('');
 
   useEffect(() => {
     fetchClasses();
     fetchSections();
+    fetchStudents();
   }, []);
 
   useEffect(() => {
     if (selectedClass && selectedSection && selectedDate) {
       fetchAttendanceReport();
     }
-  }, [selectedClass, selectedSection, selectedDate, reportType]);
+  }, [selectedClass, selectedSection, selectedDate, selectedSession, selectedStudent, reportType]);
 
   const fetchClasses = async () => {
     try {
@@ -63,24 +67,46 @@ const AttendanceReport = () => {
     }
   };
 
+  const fetchStudents = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        className: selectedClass,
+        section: selectedSection,
+        isActive: 'true'
+      });
+      const response = await fetch(`${API_ENDPOINTS.STUDENTS}?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStudents(data.students);
+      }
+    } catch (error) {
+      // ignore
+    }
+  };
+
   const fetchAttendanceReport = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      
       const params = new URLSearchParams({
         className: selectedClass,
         section: selectedSection,
         date: selectedDate
       });
-
+      if (selectedSession) params.append('session', selectedSession);
+      if (selectedStudent) params.append('studentId', selectedStudent);
       const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_CLASS}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-
       if (response.ok) {
         const data = await response.json();
         setReports(data.attendance);
@@ -88,7 +114,6 @@ const AttendanceReport = () => {
         toast.error('Failed to fetch attendance report');
       }
     } catch (error) {
-      console.error('Error fetching attendance report:', error);
       toast.error('Error fetching attendance report');
     } finally {
       setLoading(false);
@@ -226,6 +251,31 @@ const AttendanceReport = () => {
             onChange={(e) => setSelectedDate(e.target.value)}
           />
         </div>
+        <div className="filter-group">
+          <label htmlFor="reportSession">Session</label>
+          <select
+            id="reportSession"
+            value={selectedSession}
+            onChange={e => setSelectedSession(e.target.value)}
+          >
+            <option value="">All</option>
+            <option value="forenoon">Forenoon</option>
+            <option value="afternoon">Afternoon</option>
+          </select>
+        </div>
+        <div className="filter-group">
+          <label htmlFor="reportStudent">Student</label>
+          <select
+            id="reportStudent"
+            value={selectedStudent}
+            onChange={e => setSelectedStudent(e.target.value)}
+          >
+            <option value="">All</option>
+            {students.map((student) => (
+              <option key={student._id} value={student._id}>{student.fullName} ({student.rollNumber})</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {selectedClass && selectedSection && selectedDate && (
@@ -299,6 +349,7 @@ const AttendanceReport = () => {
                 <th>Roll Number</th>
                 <th>Name</th>
                 <th>Status</th>
+                <th>Session</th>
                 <th>Remarks</th>
                 <th>Marked By</th>
               </tr>
@@ -320,6 +371,7 @@ const AttendanceReport = () => {
                       {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                     </span>
                   </td>
+                  <td>{record.session ? record.session.charAt(0).toUpperCase() + record.session.slice(1) : '-'}</td>
                   <td>{record.remarks || '-'}</td>
                   <td>{record.markedBy?.fullName || 'System'}</td>
                 </tr>
