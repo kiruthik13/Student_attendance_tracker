@@ -12,30 +12,29 @@ const router = express.Router();
 // POST /api/attendance/mark - Mark attendance for a single student
 router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMarking, async (req, res) => {
   try {
-    const { student, date, status, remarks, session } = req.body;
+    let { student, date, status, remarks, session } = req.body;
     console.log('[ATTENDANCE MARK] Request body:', req.body);
-
     if (!session || !['forenoon', 'afternoon'].includes(session)) {
       console.log('[ATTENDANCE MARK] Invalid or missing session:', session);
       return res.status(400).json({ message: 'Session (forenoon/afternoon) is required' });
     }
-
+    // Ensure date is a Date object and use only the date part
+    let attendanceDate = date ? new Date(date) : new Date();
+    attendanceDate.setHours(0,0,0,0);
+    const startOfDay = new Date(attendanceDate);
+    const endOfDay = new Date(attendanceDate);
+    endOfDay.setHours(23,59,59,999);
+    console.log('[ATTENDANCE MARK] Using date range:', startOfDay, endOfDay, 'Session:', session);
     // Check if student exists
     const studentExists = await Student.findById(student);
     if (!studentExists) {
       return res.status(404).json({ message: 'Student not found' });
     }
-
     // Check if attendance already exists for this student on this date and session
     const existingAttendance = await Attendance.findOne({
       student,
       session,
-      ...(date ? {
-        date: {
-          $gte: new Date(new Date(date).setHours(0,0,0,0)),
-          $lte: new Date(new Date(date).setHours(23,59,59,999))
-        }
-      } : {})
+      date: { $gte: startOfDay, $lte: endOfDay }
     });
     if (existingAttendance) {
       // Update the existing record
@@ -46,11 +45,10 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
       await existingAttendance.save();
       return res.status(200).json({ message: 'Attendance updated successfully', attendance: existingAttendance });
     }
-
     // Create attendance record if not exists
     const attendance = new Attendance({
       student,
-      date: date || new Date(),
+      date: attendanceDate,
       session,
       status,
       remarks,
@@ -70,13 +68,19 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
 // POST /api/attendance/bulk-mark - Mark attendance for multiple students
 router.post('/bulk-mark', authenticateToken, requireActiveAdmin, validateBulkAttendance, async (req, res) => {
   try {
-    const { date, session, attendanceData } = req.body;
+    let { date, session, attendanceData } = req.body;
     console.log('[BULK MARK] Request body:', req.body);
     if (!session || !['forenoon', 'afternoon'].includes(session)) {
       console.log('[BULK MARK] Invalid or missing session:', session);
       return res.status(400).json({ message: 'Session (forenoon/afternoon) is required' });
     }
-    const attendanceDate = date || new Date();
+    // Ensure date is a Date object and use only the date part
+    let attendanceDate = date ? new Date(date) : new Date();
+    attendanceDate.setHours(0,0,0,0);
+    const startOfDay = new Date(attendanceDate);
+    const endOfDay = new Date(attendanceDate);
+    endOfDay.setHours(23,59,59,999);
+    console.log('[BULK MARK] Using date range:', startOfDay, endOfDay, 'Session:', session);
     const results = [];
     for (const record of attendanceData) {
       try {
@@ -90,10 +94,7 @@ router.post('/bulk-mark', authenticateToken, requireActiveAdmin, validateBulkAtt
         const existingAttendance = await Attendance.findOne({
           student: record.student,
           session,
-          date: {
-            $gte: new Date(new Date(attendanceDate).setHours(0,0,0,0)),
-            $lte: new Date(new Date(attendanceDate).setHours(23,59,59,999))
-          }
+          date: { $gte: startOfDay, $lte: endOfDay }
         });
         if (existingAttendance) {
           // Update the existing record
