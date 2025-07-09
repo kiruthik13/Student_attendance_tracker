@@ -14,9 +14,17 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
   try {
     let { student, date, status, remarks, session } = req.body;
     console.log('[ATTENDANCE MARK] Request body:', req.body);
+    if (!student) {
+      return res.status(400).json({ message: 'Student is required', received: req.body });
+    }
+    if (!date) {
+      return res.status(400).json({ message: 'Date is required', received: req.body });
+    }
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required', received: req.body });
+    }
     if (!session || !['forenoon', 'afternoon'].includes(session)) {
-      console.log('[ATTENDANCE MARK] Invalid or missing session:', session);
-      return res.status(400).json({ message: 'Session (forenoon/afternoon) is required' });
+      return res.status(400).json({ message: 'Session (forenoon/afternoon) is required', received: req.body });
     }
     // Ensure date is a Date object and use only the date part
     let attendanceDate = date ? new Date(date) : new Date();
@@ -59,9 +67,9 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
   } catch (error) {
     console.error('Mark attendance error:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'Attendance already marked for this student on this date and session' });
+      return res.status(400).json({ message: 'Attendance already marked for this student on this date and session', received: req.body });
     }
-    res.status(500).json({ message: 'Failed to mark attendance', error: error.message });
+    res.status(500).json({ message: 'Failed to mark attendance', error: error.message, received: req.body });
   }
 });
 
@@ -70,9 +78,14 @@ router.post('/bulk-mark', authenticateToken, requireActiveAdmin, validateBulkAtt
   try {
     let { date, session, attendanceData } = req.body;
     console.log('[BULK MARK] Request body:', req.body);
+    if (!date) {
+      return res.status(400).json({ message: 'Date is required', received: req.body });
+    }
     if (!session || !['forenoon', 'afternoon'].includes(session)) {
-      console.log('[BULK MARK] Invalid or missing session:', session);
-      return res.status(400).json({ message: 'Session (forenoon/afternoon) is required' });
+      return res.status(400).json({ message: 'Session (forenoon/afternoon) is required', received: req.body });
+    }
+    if (!attendanceData || !Array.isArray(attendanceData) || attendanceData.length === 0) {
+      return res.status(400).json({ message: 'attendanceData array is required', received: req.body });
     }
     // Ensure date is a Date object and use only the date part
     let attendanceDate = date ? new Date(date) : new Date();
@@ -127,7 +140,7 @@ router.post('/bulk-mark', authenticateToken, requireActiveAdmin, validateBulkAtt
     res.status(201).json({ message: `Bulk attendance marked. ${successCount} successful, ${failureCount} failed`, results });
   } catch (error) {
     console.error('Bulk mark attendance error:', error);
-    res.status(500).json({ message: 'Failed to mark bulk attendance', error: error.message });
+    res.status(500).json({ message: 'Failed to mark bulk attendance', error: error.message, received: req.body });
   }
 });
 

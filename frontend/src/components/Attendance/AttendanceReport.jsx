@@ -16,6 +16,8 @@ const AttendanceReport = () => {
   const [selectedSession, setSelectedSession] = useState('');
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
     fetchClasses();
@@ -24,10 +26,12 @@ const AttendanceReport = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedClass && selectedSection && selectedDate) {
+    if (selectedStudent && startDate && endDate) {
+      fetchStudentAttendance();
+    } else if (selectedClass && selectedSection && selectedDate) {
       fetchAttendanceReport();
     }
-  }, [selectedClass, selectedSection, selectedDate, selectedSession, selectedStudent, reportType]);
+  }, [selectedClass, selectedSection, selectedDate, selectedSession, selectedStudent, reportType, startDate, endDate]);
 
   const fetchClasses = async () => {
     try {
@@ -115,6 +119,33 @@ const AttendanceReport = () => {
       }
     } catch (error) {
       toast.error('Error fetching attendance report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStudentAttendance = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        startDate,
+        endDate
+      });
+      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_MARK.replace('/mark','/student')}/${selectedStudent}?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setReports(data.attendance);
+      } else {
+        toast.error('Failed to fetch student attendance');
+      }
+    } catch (error) {
+      toast.error('Error fetching student attendance');
     } finally {
       setLoading(false);
     }
@@ -276,6 +307,28 @@ const AttendanceReport = () => {
             ))}
           </select>
         </div>
+        {selectedStudent && (
+          <>
+            <div className="filter-group">
+              <label htmlFor="startDate">Start Date</label>
+              <input
+                type="date"
+                id="startDate"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="filter-group">
+              <label htmlFor="endDate">End Date</label>
+              <input
+                type="date"
+                id="endDate"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {selectedClass && selectedSection && selectedDate && (
@@ -350,6 +403,7 @@ const AttendanceReport = () => {
                 <th>Name</th>
                 <th>Status</th>
                 <th>Session</th>
+                <th>Date</th>
                 <th>Remarks</th>
                 <th>Marked By</th>
               </tr>
@@ -372,6 +426,7 @@ const AttendanceReport = () => {
                     </span>
                   </td>
                   <td>{record.session ? record.session.charAt(0).toUpperCase() + record.session.slice(1) : '-'}</td>
+                  <td>{new Date(record.date).toLocaleDateString()}</td>
                   <td>{record.remarks || '-'}</td>
                   <td>{record.markedBy?.fullName || 'System'}</td>
                 </tr>
