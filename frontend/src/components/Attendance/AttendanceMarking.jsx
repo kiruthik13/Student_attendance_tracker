@@ -67,28 +67,55 @@ const AttendanceMarking = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
+      
+      if (!token) {
+        toast.error('Authentication token missing. Please login again.');
+        return;
+      }
+
       // Fetch students
       const params = new URLSearchParams({
         className: selectedClass,
         section: selectedSection,
         isActive: 'true'
       });
+      
+      console.log('Fetching students from:', `${API_ENDPOINTS.STUDENTS}?${params}`);
       const studentsRes = await fetch(`${API_ENDPOINTS.STUDENTS}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      const studentsData = studentsRes.ok ? await studentsRes.json() : { students: [] };
+      
+      if (!studentsRes.ok) {
+        console.error('Students API error:', studentsRes.status, studentsRes.statusText);
+        toast.error(`Failed to fetch students: ${studentsRes.status} ${studentsRes.statusText}`);
+        return;
+      }
+      
+      const studentsData = await studentsRes.json();
       setStudents(studentsData.students);
+      
       // Fetch today's attendance for this class/section
-      const attendanceRes = await fetch(`${API_ENDPOINTS.ATTENDANCE_CLASS}?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`, {
+      const attendanceUrl = `${API_ENDPOINTS.ATTENDANCE_CLASS}?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`;
+      console.log('Fetching attendance from:', attendanceUrl);
+      
+      const attendanceRes = await fetch(attendanceUrl, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      const attendanceData = attendanceRes.ok ? await attendanceRes.json() : { attendance: [] };
+      
+      if (!attendanceRes.ok) {
+        console.error('Attendance API error:', attendanceRes.status, attendanceRes.statusText);
+        toast.error(`Failed to fetch attendance: ${attendanceRes.status} ${attendanceRes.statusText}`);
+        return;
+      }
+      
+      const attendanceData = await attendanceRes.json();
+      
       // Merge students with attendance
       const merged = studentsData.students.map(student => {
         const att = attendanceData.attendance.find(a => a.student && a.student._id === student._id);
@@ -100,8 +127,10 @@ const AttendanceMarking = () => {
         };
       });
       setAttendanceData(merged);
+      
     } catch (error) {
-      toast.error('Failed to fetch students or attendance');
+      console.error('Network or other error:', error);
+      toast.error(`Failed to fetch data: ${error.message}`);
     } finally {
       setLoading(false);
     }
