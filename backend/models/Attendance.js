@@ -11,6 +11,12 @@ const attendanceSchema = new mongoose.Schema({
     required: [true, 'Date is required'],
     default: Date.now
   },
+  session: {
+    type: String,
+    enum: ['forenoon', 'afternoon'],
+    required: [true, 'Session is required'],
+    default: 'forenoon'
+  },
   status: {
     type: String,
     enum: ['present', 'absent', 'late', 'half-day'],
@@ -39,8 +45,8 @@ const attendanceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index to ensure one attendance record per student per date
-attendanceSchema.index({ student: 1, date: 1 }, { unique: true });
+// Compound index to ensure one attendance record per student per date and session
+attendanceSchema.index({ student: 1, date: 1, session: 1 }, { unique: true });
 
 // Static method to find attendance by student and date
 attendanceSchema.statics.findByStudentAndDate = function(studentId, date) {

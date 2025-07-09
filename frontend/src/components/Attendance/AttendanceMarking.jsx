@@ -10,6 +10,7 @@ const AttendanceMarking = () => {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedSession, setSelectedSession] = useState('forenoon');
   const [classes, setClasses] = useState([]);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ const AttendanceMarking = () => {
     if (selectedClass && selectedSection) {
       fetchStudentsAndAttendance();
     }
-  }, [selectedClass, selectedSection, selectedDate]);
+  }, [selectedClass, selectedSection, selectedDate, selectedSession]);
 
   const fetchClasses = async () => {
     try {
@@ -97,7 +98,8 @@ const AttendanceMarking = () => {
       const studentsData = await studentsRes.json();
       setStudents(studentsData.students);
       
-      // Fetch today's attendance for this class/section
+      // Fetch today's attendance for this class/section and session (if you have a session-based GET endpoint, update here)
+      // For now, just merge as before
       const attendanceUrl = `${API_ENDPOINTS.ATTENDANCE_CLASS}?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`;
       console.log('Fetching attendance from:', attendanceUrl);
       
@@ -116,9 +118,9 @@ const AttendanceMarking = () => {
       
       const attendanceData = await attendanceRes.json();
       
-      // Merge students with attendance
+      // Merge students with attendance, filter by session if available
       const merged = studentsData.students.map(student => {
-        const att = attendanceData.attendance.find(a => a.student && a.student._id === student._id);
+        const att = attendanceData.attendance.find(a => a.student && a.student._id === student._id && a.session === selectedSession);
         return {
           student: student._id,
           attendanceId: att ? att._id : null,
@@ -181,7 +183,8 @@ const AttendanceMarking = () => {
               student: record.student,
               date: selectedDate,
               status: record.status,
-              remarks: record.remarks
+              remarks: record.remarks,
+              session: selectedSession
             })
           });
           if (res.ok) {
@@ -201,7 +204,8 @@ const AttendanceMarking = () => {
               student: record.student,
               date: selectedDate,
               status: record.status,
-              remarks: record.remarks
+              remarks: record.remarks,
+              session: selectedSession
             })
           });
           if (res.ok) {
@@ -286,6 +290,18 @@ const AttendanceMarking = () => {
               {sections.map((section) => (
                 <option key={section} value={section}>{section}</option>
               ))}
+            </select>
+          </div>
+          <div className="control-group">
+            <label htmlFor="session">Session *</label>
+            <select
+              id="session"
+              value={selectedSession}
+              onChange={e => setSelectedSession(e.target.value)}
+              required
+            >
+              <option value="forenoon">Forenoon</option>
+              <option value="afternoon">Afternoon</option>
             </select>
           </div>
           <div className="control-group">
