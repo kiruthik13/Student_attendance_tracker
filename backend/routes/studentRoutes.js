@@ -8,8 +8,15 @@ const {
 
 const router = express.Router();
 
+// Add logging middleware for debugging
+router.use((req, res, next) => {
+  console.log(`[StudentRoutes] ${req.method} ${req.originalUrl} - Auth header:`, req.headers.authorization);
+  next();
+});
+
 // GET /api/students - Get all students with pagination and filters
 router.get('/', authenticateToken, requireActiveAdmin, async (req, res) => {
+  console.log('[StudentRoutes] GET / - Accessed');
   try {
     const { 
       page = 1, 
