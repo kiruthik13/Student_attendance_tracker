@@ -13,8 +13,10 @@ const router = express.Router();
 router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMarking, async (req, res) => {
   try {
     const { student, date, status, remarks, session } = req.body;
+    console.log('[ATTENDANCE MARK] Request body:', req.body);
 
     if (!session || !['forenoon', 'afternoon'].includes(session)) {
+      console.log('[ATTENDANCE MARK] Invalid or missing session:', session);
       return res.status(400).json({ message: 'Session (forenoon/afternoon) is required' });
     }
 
@@ -61,7 +63,7 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
     if (error.code === 11000) {
       return res.status(400).json({ message: 'Attendance already marked for this student on this date and session' });
     }
-    res.status(500).json({ message: 'Failed to mark attendance' });
+    res.status(500).json({ message: 'Failed to mark attendance', error: error.message });
   }
 });
 
@@ -69,7 +71,9 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
 router.post('/bulk-mark', authenticateToken, requireActiveAdmin, validateBulkAttendance, async (req, res) => {
   try {
     const { date, session, attendanceData } = req.body;
+    console.log('[BULK MARK] Request body:', req.body);
     if (!session || !['forenoon', 'afternoon'].includes(session)) {
+      console.log('[BULK MARK] Invalid or missing session:', session);
       return res.status(400).json({ message: 'Session (forenoon/afternoon) is required' });
     }
     const attendanceDate = date || new Date();
@@ -113,6 +117,7 @@ router.post('/bulk-mark', authenticateToken, requireActiveAdmin, validateBulkAtt
         await attendance.save();
         results.push({ student: record.student, success: true, message: 'Attendance marked successfully' });
       } catch (error) {
+        console.error(`[BULK MARK] Error for student ${record.student}:`, error.message);
         results.push({ student: record.student, success: false, message: error.message });
       }
     }
@@ -121,7 +126,7 @@ router.post('/bulk-mark', authenticateToken, requireActiveAdmin, validateBulkAtt
     res.status(201).json({ message: `Bulk attendance marked. ${successCount} successful, ${failureCount} failed`, results });
   } catch (error) {
     console.error('Bulk mark attendance error:', error);
-    res.status(500).json({ message: 'Failed to mark bulk attendance' });
+    res.status(500).json({ message: 'Failed to mark bulk attendance', error: error.message });
   }
 });
 

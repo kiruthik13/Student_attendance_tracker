@@ -103,6 +103,6 @@ const PORT = config.port;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📱 Frontend URL: ${config.frontendUrl}`);
-  console.log(`🔗 API URL: http://localhost:${PORT}`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🔗 API URL: https://student-attendance-tracker-1-n2l2.onrender.com`);
+  console.log(`🏥 Health check: https://student-attendance-tracker-1-n2l2.onrender.com/api/health`);
 }); 
