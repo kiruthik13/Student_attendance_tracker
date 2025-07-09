@@ -15,7 +15,7 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 // Create Express app
 const app = express();
 
-// CORS Configuration - Explicitly defined here
+// CORS Configuration - Automatically allow all origins in development, restrict in production
 const allowedOrigins = [
   'https://student-attendance-tracker-gilt.vercel.app',
   'https://student-attendance-tracker-1-n2l2.onrender.com',
@@ -27,15 +27,18 @@ console.log('🚀 Allowed CORS origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
+    if (process.env.NODE_ENV === 'development') {
+      // Allow all origins in development
+      return callback(null, true);
+    }
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
     if (allowedOrigins.indexOf(origin) !== -1) {
       console.log('✅ CORS allowed for origin:', origin);
       callback(null, true);
     } else {
       console.log('❌ CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error('Not allowed by CORS: ' + origin));
     }
   },
   credentials: true,
