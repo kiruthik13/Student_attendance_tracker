@@ -258,36 +258,37 @@
 /* Student Form Modal */
 .student-form-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.12);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: 20px;
 }
-
 .student-form-modal {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  background: #fff;
+  border-radius: 16px;
+  max-width: 500px;
+  min-width: 320px;
   width: 100%;
-  max-width: 800px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 28px 18px 18px 18px;
+  margin: 0 auto;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: auto;
+  outline: none;
 }
-
 .form-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 20px 30px;
-  border-bottom: 1px solid #e1e5e9;
+  justify-content: space-between;
+  margin-bottom: 18px;
 }
-
 .form-header h3 {
   margin: 0;
   color: #333;
@@ -374,10 +375,8 @@
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 15px;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid #e1e5e9;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .cancel-btn {
@@ -618,5 +617,72 @@
   
   .info-grid {
     grid-template-columns: 1fr;
+  }
+} 
+
+/* Responsive grid for student form */
+.student-form-grid .form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+.student-form-grid .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+@media (max-width: 900px) {
+  .student-form-grid .form-row {
+    grid-template-columns: 1fr;
+  }
+} 
+
+.student-form-grid2 .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 32px;
+  margin-bottom: 22px;
+}
+.student-form-grid2 .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.student-form-grid2 textarea {
+  resize: vertical;
+}
+@media (max-width: 700px) {
+  .student-form-modal {
+    padding: 18px 6px 12px 6px;
+    max-width: 99vw;
+  }
+  .student-form-grid2 .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px 0;
+  }
+} 
+
+.student-form-grid3 .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 18px;
+  margin-bottom: 18px;
+}
+.student-form-grid3 .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.student-form-grid3 textarea {
+  resize: vertical;
+}
+@media (max-width: 700px) {
+  .student-form-modal {
+    padding: 10px 2vw 10px 2vw;
+    max-width: 99vw;
+  }
+  .student-form-grid3 .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px 0;
   }
 } 

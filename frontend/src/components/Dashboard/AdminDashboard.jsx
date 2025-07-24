@@ -67,7 +67,7 @@ const AdminDashboard = () => {
     { id: 'students', label: 'Students', icon: <FaUsers /> },
     { id: 'add-student', label: 'Add Student', icon: <FaUserPlus /> },
     { id: 'attendance', label: 'Mark Attendance', icon: <FaCalendarCheck /> },
-    { id: 'reports', label: 'Reports', icon: <MdAssessment /> }
+    { id: 'reports', label: 'Reports', icon: <MdAssessment /> },
   ];
 
   const renderContent = () => {

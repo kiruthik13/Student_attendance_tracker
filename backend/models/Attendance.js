@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+// Period mapping:
+// 1: 8:45-9:35 am (Forenoon)
+// 2: 9:35-10:25 am (Forenoon)
+// 3: 10:45-11:35 am (Forenoon)
+// 4: 11:35 am-12:25 pm (Forenoon)
+// 5: 1:25-2:15 pm (Afternoon)
+// 6: 2:15-3:05 pm (Afternoon)
+// 7: 3:25-4:15 pm (Afternoon)
+
 const attendanceSchema = new mongoose.Schema({
   student: {
     type: mongoose.Schema.Types.ObjectId,
@@ -16,6 +25,11 @@ const attendanceSchema = new mongoose.Schema({
     enum: ['forenoon', 'afternoon'],
     required: [true, 'Session is required'],
     default: 'forenoon'
+  },
+  period: {
+    type: Number,
+    enum: [1, 2, 3, 4, 5, 6, 7],
+    required: [true, 'Period is required']
   },
   status: {
     type: String,
@@ -45,8 +59,8 @@ const attendanceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index to ensure one attendance record per student per date and session
-attendanceSchema.index({ student: 1, date: 1, session: 1 }, { unique: true });
+// Compound index to ensure one attendance record per student per date, session, and period
+attendanceSchema.index({ student: 1, date: 1, session: 1, period: 1 }, { unique: true });
 
 // Static method to find attendance by student and date
 attendanceSchema.statics.findByStudentAndDate = function(studentId, date) {
@@ -94,6 +108,27 @@ attendanceSchema.statics.getClassAttendance = function(className, section, date)
     match: { className: className, section: section },
     select: 'fullName rollNumber className section'
   });
+};
+
+// Static method to get period timings
+attendanceSchema.statics.getPeriodTiming = function(period) {
+  const timings = {
+    1: '8:45-9:35 am',
+    2: '9:35-10:25 am',
+    3: '10:45-11:35 am',
+    4: '11:35 am-12:25 pm',
+    5: '1:25-2:15 pm',
+    6: '2:15-3:05 pm',
+    7: '3:25-4:15 pm'
+  };
+  return timings[period] || '';
+};
+
+// Static method to get session periods
+attendanceSchema.statics.getSessionPeriods = function(session) {
+  if (session === 'forenoon') return [1,2,3,4];
+  if (session === 'afternoon') return [5,6,7];
+  return [];
 };
 
 // Static method to get attendance statistics for a student

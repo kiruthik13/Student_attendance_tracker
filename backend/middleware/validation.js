@@ -209,24 +209,22 @@ const validateBulkAttendance = [
     .optional()
     .isISO8601()
     .withMessage('Valid date is required'),
-  
   body('attendanceData')
     .isArray({ min: 1 })
     .withMessage('At least one attendance record is required'),
-  
   body('attendanceData.*.student')
     .isMongoId()
     .withMessage('Valid student ID is required'),
-  
   body('attendanceData.*.status')
     .isIn(['present', 'absent', 'late', 'half-day'])
     .withMessage('Status must be present, absent, late, or half-day'),
-  
   body('attendanceData.*.remarks')
     .optional()
     .isLength({ max: 200 })
     .withMessage('Remarks cannot exceed 200 characters'),
-  
+  body('attendanceData.*.period')
+    .exists().withMessage('Period is required')
+    .isInt({ min: 1, max: 7 }).withMessage('Period must be an integer between 1 and 7'),
   handleValidationErrors
 ];
 

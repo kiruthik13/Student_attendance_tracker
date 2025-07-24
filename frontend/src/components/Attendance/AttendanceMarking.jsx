@@ -6,7 +6,7 @@ import './Attendance.css';
 
 const AttendanceMarking = () => {
   const [students, setStudents] = useState([]);
-  const [attendanceData, setAttendanceData] = useState([]);
+  const [attendanceData, setAttendanceData] = useState({}); // { studentId: { period: { status, remarks, attendanceId } } }
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -15,12 +15,47 @@ const AttendanceMarking = () => {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Define periods and labels at the top
+  const allPeriods = [1,2,3,4,5,6,7];
+  const periodLabels = {
+    1: '8:45-9:35 am',
+    2: '9:35-10:25 am',
+    3: '10:45-11:35 am',
+    4: '11:35 am-12:25 pm',
+    5: '1:25-2:15 pm',
+    6: '2:15-3:05 pm',
+    7: '3:25-4:15 pm',
+  };
+  // Define sessionPeriods at the top so it's available everywhere
+  const sessionPeriods = selectedSession === 'forenoon' ? [1,2,3,4] : [5,6,7];
+  // Add state for bulk period selection
+  const [bulkPeriod, setBulkPeriod] = useState('all'); // 'all' or a specific period
 
   useEffect(() => {
     fetchClasses();
     fetchSections();
   }, []);
 
+  const periodOptions = {
+    forenoon: [
+      { value: 1, label: '1st Period (8:45-9:35 am)' },
+      { value: 2, label: '2nd Period (9:35-10:25 am)' },
+      { value: 3, label: '3rd Period (10:45-11:35 am)' },
+      { value: 4, label: '4th Period (11:35 am-12:25 pm)' },
+    ],
+    afternoon: [
+      { value: 5, label: '5th Period (1:25-2:15 pm)' },
+      { value: 6, label: '6th Period (2:15-3:05 pm)' },
+      { value: 7, label: '7th Period (3:25-4:15 pm)' },
+    ]
+  };
+
+  // Update period when session changes
+  useEffect(() => {
+    // This useEffect is no longer needed as periods are fixed
+  }, [selectedSession]);
+
+  // Update fetchStudentsAndAttendance to include period
   useEffect(() => {
     if (selectedClass && selectedSection) {
       fetchStudentsAndAttendance();
@@ -98,9 +133,8 @@ const AttendanceMarking = () => {
       const studentsData = await studentsRes.json();
       setStudents(studentsData.students);
       
-      // Fetch today's attendance for this class/section and session (if you have a session-based GET endpoint, update here)
-      // For now, just merge as before
-      const attendanceUrl = `${API_ENDPOINTS.ATTENDANCE_CLASS}?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`;
+      // Fetch attendance for this class/section/session/date
+      const attendanceUrl = `${API_ENDPOINTS.ATTENDANCE_CLASS}?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}&session=${selectedSession}`;
       console.log('Fetching attendance from:', attendanceUrl);
       
       const attendanceRes = await fetch(attendanceUrl, {
@@ -118,17 +152,23 @@ const AttendanceMarking = () => {
       
       const attendanceData = await attendanceRes.json();
       
-      // Merge students with attendance, filter by session if available
-      const merged = studentsData.students.map(student => {
-        const att = attendanceData.attendance.find(a => a.student && a.student._id === student._id && a.session === selectedSession);
-        return {
-          student: student._id,
-          attendanceId: att ? att._id : null,
+      // Merge students with attendance, filter by session and period
+      const newAttendanceData = {};
+      studentsData.students.forEach(student => {
+        newAttendanceData[student._id] = {};
+        allPeriods.forEach(period => {
+          const att = attendanceData.attendance?.find(a => a.student && a.student._id === student._id && a.period === period);
+          newAttendanceData[student._id][period] = {
           status: att ? att.status : 'present',
-          remarks: att ? att.remarks : ''
+            remarks: att ? att.remarks : '',
+            attendanceId: att ? att._id : null
         };
+        });
       });
-      setAttendanceData(merged);
+      setAttendanceData(newAttendanceData);
+      
+      console.log('Fetched students:', studentsData.students);
+      console.log('Fetched attendance:', attendanceData.attendance);
       
     } catch (error) {
       console.error('Network or other error:', error);
@@ -138,20 +178,34 @@ const AttendanceMarking = () => {
     }
   };
 
-  const handleAttendanceChange = (studentId, field, value) => {
-    setAttendanceData(prev =>
-      prev.map(item =>
-        item.student === studentId
-          ? { ...item, [field]: value }
-          : item
-      )
-    );
+  const handleAttendanceChange = (studentId, period, field, value) => {
+    setAttendanceData(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [period]: {
+          ...prev[studentId][period],
+          [field]: value
+        }
+      }
+    }));
   };
 
+  // Update handleBulkAction to support all periods
   const handleBulkAction = (status) => {
-    setAttendanceData(prev =>
-      prev.map(item => ({ ...item, status }))
-    );
+    setAttendanceData(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(studentId => {
+        if (bulkPeriod === 'all') {
+          sessionPeriods.forEach(period => {
+            updated[studentId][period].status = status;
+          });
+        } else {
+          updated[studentId][bulkPeriod].status = status;
+        }
+      });
+      return updated;
+    });
   };
 
   // Save attendance: PUT if exists, POST if not
@@ -161,67 +215,50 @@ const AttendanceMarking = () => {
       toast.error('Please select class and section');
       return;
     }
-    if (attendanceData.length === 0) {
-      toast.error('No students to mark attendance for');
-      return;
-    }
     setSubmitting(true);
     const token = localStorage.getItem('token');
-    let successCount = 0;
-    let failCount = 0;
-    for (const record of attendanceData) {
-      try {
-        if (record.attendanceId) {
-          // Update existing attendance
-          const res = await fetch(`${API_ENDPOINTS.ATTENDANCE_MARK}/${record.attendanceId}`, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              student: record.student,
-              date: selectedDate,
-              status: record.status,
-              remarks: record.remarks,
-              session: selectedSession
-            })
-          });
-          if (res.ok) {
-            successCount++;
-          } else {
-            failCount++;
-          }
-        } else {
-          // Create new attendance
-          const res = await fetch(API_ENDPOINTS.ATTENDANCE_MARK, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              student: record.student,
-              date: selectedDate,
-              status: record.status,
-              remarks: record.remarks,
-              session: selectedSession
-            })
-          });
-          if (res.ok) {
-            successCount++;
-          } else {
-            failCount++;
-          }
-        }
-      } catch (error) {
-        failCount++;
+    const bulkData = [];
+    Object.entries(attendanceData).forEach(([studentId, periodsObj]) => {
+      sessionPeriods.forEach(period => {
+        if (![1,2,3,4,5,6,7].includes(period)) return; // skip invalid
+        // Default status to 'present' if not set
+        const status = (periodsObj[period] && periodsObj[period].status) ? periodsObj[period].status : 'present';
+        const remarks = periodsObj[period]?.remarks || '';
+        bulkData.push({
+          student: studentId,
+          date: selectedDate,
+          status,
+          remarks,
+          session: selectedSession,
+          period
+        });
+      });
+    });
+    try {
+      const res = await fetch(API_ENDPOINTS.ATTENDANCE_BULK_MARK, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          date: selectedDate,
+          session: selectedSession,
+          attendanceData: bulkData
+        })
+      });
+      if (res.ok) {
+        toast.success('Attendance saved for all periods!');
+        fetchStudentsAndAttendance();
+      } else {
+        const data = await res.json();
+        toast.error(data.message || 'Failed to save some attendance records.');
       }
+    } catch (error) {
+      toast.error('Network error while saving attendance.');
+    } finally {
+      setSubmitting(false);
     }
-    toast.success(`Attendance saved. ${successCount} successful, ${failCount} failed`);
-    setSubmitting(false);
-    // Refresh data
-    fetchStudentsAndAttendance();
   };
 
   const getStatusIcon = (status) => {
@@ -325,6 +362,12 @@ const AttendanceMarking = () => {
             <div className="bulk-actions">
               <h3>Bulk Actions</h3>
               <div className="bulk-buttons">
+                <select value={bulkPeriod} onChange={e => setBulkPeriod(e.target.value)} style={{ marginRight: 8 }}>
+                  <option value="all">All Periods</option>
+                  {sessionPeriods.map(period => (
+                    <option key={period} value={period}>{`P${period} (${periodLabels[period]})`}</option>
+                  ))}
+                </select>
                 <button
                   type="button"
                   className="bulk-btn present"
@@ -359,30 +402,31 @@ const AttendanceMarking = () => {
               <table className="attendance-table">
                 <thead>
                   <tr>
-                    <th>Roll Number</th>
+                    <th>Roll No</th>
                     <th>Name</th>
-                    <th>Status</th>
-                    <th>Remarks</th>
+                    {sessionPeriods.map(period => (
+                      <th key={period}>{`P${period}`}<br/>{periodLabels[period]}</th>
+                    ))}
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((student) => {
-                    const attendance = attendanceData.find(a => a.student === student._id);
-                    return (
+                  {students.map(student => (
                       <tr key={student._id}>
                         <td>{student.rollNumber}</td>
                         <td>{student.fullName}</td>
-                        <td>
+                      {sessionPeriods.map(period => (
+                        <td key={period}>
                           <div className="status-selector">
-                            {['present', 'absent', 'late', 'half-day'].map((status) => (
+                            {['present', 'absent', 'late', 'half-day'].map(status => (
                               <button
                                 key={status}
                                 type="button"
-                                className={`status-btn ${attendance?.status === status ? 'active' : ''}`}
-                                onClick={() => handleAttendanceChange(student._id, 'status', status)}
+                                className={`status-btn ${attendanceData[student._id]?.[period]?.status === status ? 'active' : ''}`}
+                                onClick={() => handleAttendanceChange(student._id, period, 'status', status)}
                                 style={{
-                                  backgroundColor: attendance?.status === status ? getStatusColor(status) : 'transparent',
-                                  color: attendance?.status === status ? 'white' : getStatusColor(status),
+                                  backgroundColor: attendanceData[student._id]?.[period]?.status === status ? getStatusColor(status) : 'transparent',
+                                  color: attendanceData[student._id]?.[period]?.status === status ? 'white' : getStatusColor(status),
                                   borderColor: getStatusColor(status)
                                 }}
                               >
@@ -391,19 +435,18 @@ const AttendanceMarking = () => {
                               </button>
                             ))}
                           </div>
-                        </td>
-                        <td>
                           <input
                             type="text"
-                            placeholder="Optional remarks"
-                            value={attendance?.remarks || ''}
-                            onChange={(e) => handleAttendanceChange(student._id, 'remarks', e.target.value)}
+                            placeholder="Remarks"
+                            value={attendanceData[student._id]?.[period]?.remarks || ''}
+                            onChange={e => handleAttendanceChange(student._id, period, 'remarks', e.target.value)}
                             maxLength="200"
+                            style={{ marginTop: 4, width: '90%' }}
                           />
                         </td>
+                      ))}
                       </tr>
-                    );
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>

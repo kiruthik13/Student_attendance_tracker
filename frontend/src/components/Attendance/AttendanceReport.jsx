@@ -18,6 +18,9 @@ const AttendanceReport = () => {
   const [selectedStudent, setSelectedStudent] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [rangeReport, setRangeReport] = useState([]);
+  const [rangeDates, setRangeDates] = useState([]);
+  const [periods, setPeriods] = useState([]); // Added periods state
 
   useEffect(() => {
     fetchClasses();
@@ -26,9 +29,11 @@ const AttendanceReport = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedStudent && startDate && endDate) {
+    if (reportType === 'range' && selectedClass && selectedSection && startDate && endDate) {
+      fetchRangeReport();
+    } else if (reportType === 'student' && selectedStudent && startDate && endDate) {
       fetchStudentAttendance();
-    } else if (selectedClass && selectedSection && selectedDate) {
+    } else if (reportType === 'daily' && selectedClass && selectedSection && selectedDate) {
       fetchAttendanceReport();
     }
   }, [selectedClass, selectedSection, selectedDate, selectedSession, selectedStudent, reportType, startDate, endDate]);
@@ -151,6 +156,76 @@ const AttendanceReport = () => {
     }
   };
 
+  const fetchRangeReport = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        className: selectedClass,
+        section: selectedSection,
+        startDate,
+        endDate
+      });
+      const response = await fetch(`/api/attendance/range-report?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRangeReport(data.report);
+        setRangeDates(data.dates);
+        setPeriods(data.periods); // Set periods from backend
+      } else {
+        toast.error('Failed to fetch range report');
+        setRangeReport([]);
+        setRangeDates([]);
+        setPeriods([]); // Clear periods on error
+      }
+    } catch (error) {
+      toast.error('Error fetching range report');
+      setRangeReport([]);
+      setRangeDates([]);
+      setPeriods([]); // Clear periods on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportRangeCSV = () => {
+    if (!rangeReport.length || !rangeDates.length || !periods) return;
+    const headers = ['Student Name', 'Roll Number', 'Class', 'Section'];
+    rangeDates.forEach(date => {
+      periods.forEach(period => {
+        headers.push(`${date} P${period}`);
+      });
+    });
+    const rows = rangeReport.map(r => {
+      const row = [r.fullName, r.rollNumber, r.className, r.section];
+      r.attendance.forEach(a => {
+        periods.forEach(period => {
+          row.push(a[`period${period}`]);
+        });
+      });
+      return row;
+    });
+    let csvContent = '';
+    csvContent += headers.join(',') + '\n';
+    rows.forEach(row => {
+      csvContent += row.map(field => `"${(field ?? '').toString().replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `attendance_range_report_${startDate}_to_${endDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getStatusCounts = () => {
     const counts = {
       present: 0,
@@ -203,32 +278,42 @@ const AttendanceReport = () => {
     }
   };
 
+  // For period timings
+  const periodTimings = {
+    1: '8:45-9:35 am',
+    2: '9:35-10:25 am',
+    3: '10:45-11:35 am',
+    4: '11:35 am-12:25 pm',
+    5: '1:25-2:15 pm',
+    6: '2:15-3:05 pm',
+    7: '3:25-4:15 pm'
+  };
+
   const exportToCSV = () => {
-    if (reports.length === 0) {
-      toast.error('No data to export');
-      return;
-    }
-
-    const headers = ['Roll Number', 'Name', 'Status', 'Remarks', 'Date'];
-    const csvData = reports.map(record => [
-      record.student.rollNumber,
-      record.student.fullName,
-      record.status,
-      record.remarks || '',
-      new Date(record.date).toLocaleDateString()
+    if (!reports.length) return;
+    const periodsToUse = periods && periods.length ? periods : [1,2,3,4,5,6,7];
+    const headers = ['Student Name', 'Roll Number', 'Class', 'Section', ...periodsToUse.map(p => `P${p} (${periodTimings[p]})`)];
+    const rows = reports.map(r => [
+      r.fullName || r.student?.fullName || '-',
+      r.rollNumber || r.student?.rollNumber || '-',
+      r.className || r.student?.className || '-',
+      r.section || r.student?.section || '-',
+      ...periodsToUse.map(period => r[`period${period}`] || '-')
     ]);
-
-    const csvContent = [headers, ...csvData]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance_${selectedClass}_${selectedSection}_${selectedDate}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    let csvContent = '';
+    csvContent += headers.join(',') + '\n';
+    rows.forEach(row => {
+      csvContent += row.map(field => `"${(field ?? '').toString().replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `attendance_daily_report_${selectedDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const statusCounts = getStatusCounts();
@@ -237,99 +322,209 @@ const AttendanceReport = () => {
     <div className="attendance-report-container">
       <div className="report-header">
         <h2>Attendance Report</h2>
-        <div className="header-actions">
-          <button className="export-btn" onClick={exportToCSV} disabled={reports.length === 0}>
-            <FaDownload /> Export CSV
-          </button>
-        </div>
+      </div>
+      <div className="report-type-toggle" style={{ marginBottom: 20 }}>
+        <button onClick={() => setReportType('daily')} className={reportType === 'daily' ? 'active' : ''}>Daily</button>
+        <button onClick={() => setReportType('range')} className={reportType === 'range' ? 'active' : ''}>Date Range</button>
+        <button onClick={() => setReportType('student')} className={reportType === 'student' ? 'active' : ''}>Student</button>
       </div>
 
-      <div className="report-filters">
-        <div className="filter-group">
-          <label htmlFor="reportClass">Class</label>
-          <select
-            id="reportClass"
-            value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
-          >
-            <option value="">Select Class</option>
-            {classes.map((cls) => (
-              <option key={cls} value={cls}>{cls}</option>
-            ))}
-          </select>
+      {/* Filters for all report types */}
+      {reportType === 'daily' && (
+        <div className="report-filters">
+          <div className="filter-group">
+            <label>Class</label>
+            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+              <option value="">Select Class</option>
+              {classes.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Section</label>
+            <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)}>
+              <option value="">Select Section</option>
+              {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Date</label>
+            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+          </div>
+          <div className="filter-group">
+            <label>Student</label>
+            <select value={selectedStudent} onChange={e => setSelectedStudent(e.target.value)}>
+              <option value="">All</option>
+              {students.map(s => <option key={s._id} value={s._id}>{s.fullName}</option>)}
+            </select>
+          </div>
+          <div className="filter-group" style={{ alignSelf: 'end' }}>
+            <button className="export-btn" onClick={exportToCSV} disabled={!reports.length}>Export CSV</button>
+          </div>
         </div>
+      )}
+      {reportType === 'range' && (
+        <div className="report-filters">
+          <div className="filter-group">
+            <label>Class</label>
+            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+              <option value="">Select Class</option>
+              {classes.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Section</label>
+            <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)}>
+              <option value="">Select Section</option>
+              {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Start Date</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          </div>
+          <div className="filter-group">
+            <label>End Date</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+          </div>
+          <div className="filter-group" style={{ alignSelf: 'end' }}>
+            <button className="export-btn" onClick={exportRangeCSV} disabled={!rangeReport.length}>Export CSV</button>
+            <button className="export-btn" style={{ marginLeft: 8 }} onClick={fetchRangeReport} disabled={loading || !selectedClass || !selectedSection || !startDate || !endDate}>Fetch Report</button>
+          </div>
+        </div>
+      )}
+      {reportType === 'student' && (
+        <div className="report-filters">
+          <div className="filter-group">
+            <label>Student</label>
+            <select value={selectedStudent} onChange={e => setSelectedStudent(e.target.value)}>
+              <option value="">Select Student</option>
+              {students.map(s => <option key={s._id} value={s._id}>{s.fullName}</option>)}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Start Date</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          </div>
+          <div className="filter-group">
+            <label>End Date</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+          </div>
+          <div className="filter-group" style={{ alignSelf: 'end' }}>
+            <button className="export-btn" onClick={exportToCSV} disabled={!reports.length}>Export CSV</button>
+          </div>
+        </div>
+      )}
 
-        <div className="filter-group">
-          <label htmlFor="reportSection">Section</label>
-          <select
-            id="reportSection"
-            value={selectedSection}
-            onChange={(e) => setSelectedSection(e.target.value)}
-          >
-            <option value="">Select Section</option>
-            {sections.map((section) => (
-              <option key={section} value={section}>{section}</option>
-            ))}
-          </select>
+      {/* Table for Daily Report */}
+      {reportType === 'daily' && (
+        <div className="attendance-table-container">
+          {loading ? <div className="loading-message">Loading...</div> : (
+            reports.length ? (
+              <table className="attendance-table">
+                <thead>
+                  <tr>
+                    <th>Student Name</th>
+                    <th>Roll Number</th>
+                    <th>Class</th>
+                    <th>Section</th>
+                    {(periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                      <th key={'period' + period}>P{period}<br /><span style={{fontWeight:400, fontSize:'11px'}}>{periodTimings[period]}</span></th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((r, idx) => (
+                    <tr key={r.studentId || idx}>
+                      <td>{r.fullName || r.student?.fullName || '-'}</td>
+                      <td>{r.rollNumber || r.student?.rollNumber || '-'}</td>
+                      <td>{r.className || r.student?.className || '-'}</td>
+                      <td>{r.section || r.student?.section || '-'}</td>
+                      {(periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                        <td key={`${r.studentId || idx}-p${period}`}>{r[`period${period}`] || '-'}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <div className="no-data">No data to display.</div>
+          )}
         </div>
+      )}
 
-        <div className="filter-group">
-          <label htmlFor="reportDate">Date</label>
-          <input
-            type="date"
-            id="reportDate"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
-        </div>
-        <div className="filter-group">
-          <label htmlFor="reportSession">Session</label>
-          <select
-            id="reportSession"
-            value={selectedSession}
-            onChange={e => setSelectedSession(e.target.value)}
-          >
-            <option value="">All</option>
-            <option value="forenoon">Forenoon</option>
-            <option value="afternoon">Afternoon</option>
-          </select>
-        </div>
-        <div className="filter-group">
-          <label htmlFor="reportStudent">Student</label>
-          <select
-            id="reportStudent"
-            value={selectedStudent}
-            onChange={e => setSelectedStudent(e.target.value)}
-          >
-            <option value="">All</option>
-            {students.map((student) => (
-              <option key={student._id} value={student._id}>{student.fullName} ({student.rollNumber})</option>
-            ))}
-          </select>
-        </div>
-        {selectedStudent && (
-          <>
-            <div className="filter-group">
-              <label htmlFor="startDate">Start Date</label>
-              <input
-                type="date"
-                id="startDate"
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-              />
+      {/* Table for Date Range Report */}
+      {reportType === 'range' && (
+        <>
+          {startDate && endDate && (
+            <div style={{ margin: '16px 0', fontWeight: 500, color: '#444', fontSize: '16px' }}>
+              Showing results from <span style={{ color: '#2e7d32' }}>{startDate}</span> to <span style={{ color: '#2e7d32' }}>{endDate}</span>
             </div>
-            <div className="filter-group">
-              <label htmlFor="endDate">End Date</label>
-              <input
-                type="date"
-                id="endDate"
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-              />
-            </div>
-          </>
-        )}
-      </div>
+          )}
+          <div className="attendance-table-container">
+            {loading ? <div className="loading-message">Loading...</div> : (
+              rangeReport.length ? (
+                <table className="attendance-table">
+                  <thead>
+                    <tr>
+                      <th>Student Name</th>
+                      <th>Roll Number</th>
+                      <th>Class</th>
+                      <th>Section</th>
+                      {rangeDates && (periods && periods.length ? periods : [1,2,3,4,5,6,7]) && rangeDates.map(date => (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                        <th key={date + '-p' + period}>
+                          {date} P{period}
+                        </th>
+                      )))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rangeReport.map((r, idx) => (
+                      <tr key={r.studentId || idx}>
+                        <td>{r.fullName || r.student?.fullName || '-'}</td>
+                        <td>{r.rollNumber || r.student?.rollNumber || '-'}</td>
+                        <td>{r.className || r.student?.className || '-'}</td>
+                        <td>{r.section || r.student?.section || '-'}</td>
+                        {r.attendance && r.attendance.map((a, aidx) => (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                          <td key={aidx + '-p' + period}>{a[`period${period}`] || '-'}</td>
+                        )))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <div className="no-data">No data to display.</div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Table for Student Report */}
+      {reportType === 'student' && (
+        <div className="attendance-table-container">
+          {loading ? <div className="loading-message">Loading...</div> : (
+            reports.length ? (
+              <table className="attendance-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Period</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.sort((a, b) => new Date(a.date) - new Date(b.date) || a.period - b.period).map((r, idx) => (
+                    <tr key={r._id || idx}>
+                      <td>{r.date ? new Date(r.date).toLocaleDateString() : '-'}</td>
+                      <td>{r.period ? `P${r.period} (${periodTimings[r.period]})` : '-'}</td>
+                      <td>{r.status}</td>
+                      <td>{r.remarks || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <div className="no-data">No data to display.</div>
+          )}
+        </div>
+      )}
 
       {selectedClass && selectedSection && selectedDate && (
         <div className="report-summary">
@@ -401,35 +596,26 @@ const AttendanceReport = () => {
               <tr>
                 <th>Roll Number</th>
                 <th>Name</th>
+                <th>Period</th>
                 <th>Status</th>
                 <th>Session</th>
                 <th>Date</th>
                 <th>Remarks</th>
-                <th>Marked By</th>
               </tr>
             </thead>
             <tbody>
-              {reports.map((record) => (
-                <tr key={record._id}>
-                  <td>{record.student.rollNumber}</td>
-                  <td>{record.student.fullName}</td>
-                  <td>
-                    <span 
-                      className="status-badge"
-                      style={{
-                        backgroundColor: getStatusColor(record.status),
-                        color: 'white'
-                      }}
-                    >
-                      {getStatusIcon(record.status)}
-                      {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                    </span>
-                  </td>
-                  <td>{record.session ? record.session.charAt(0).toUpperCase() + record.session.slice(1) : '-'}</td>
-                  <td>{new Date(record.date).toLocaleDateString()}</td>
-                  <td>{record.remarks || '-'}</td>
-                  <td>{record.markedBy?.fullName || 'System'}</td>
-                </tr>
+              {reports.map((record, idx) => (
+                (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                  <tr key={`${record.studentId || idx}-p${period}`}>
+                    <td>{record.rollNumber || record.student?.rollNumber || '-'}</td>
+                    <td>{record.fullName || record.student?.fullName || '-'}</td>
+                    <td>{`P${period}`}</td>
+                    <td>{record[`period${period}`] || '-'}</td>
+                    <td>{period >= 1 && period <= 4 ? 'Forenoon' : 'Afternoon'}</td>
+                    <td>{selectedDate ? new Date(selectedDate).toLocaleDateString() : '-'}</td>
+                    <td>-</td>
+                  </tr>
+                ))
               ))}
             </tbody>
           </table>

@@ -6,7 +6,7 @@ module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   
   // MongoDB Configuration
-  mongoUri: process.env.MONGODB_URI || 'mongodb+srv://mrbairavan:kiruthik13@cluster0.fhhvceb.mongodb.net/student-attendance-tracker',
+  mongoUri: 'mongodb+srv://mrbairavan:kiruthik13@cluster0.fhhvceb.mongodb.net/student-attendance-tracker',
   
   // JWT Configuration
   jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production',

@@ -167,171 +167,71 @@ const StudentForm = ({ student, onSave, onCancel }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="student-form">
+        <form onSubmit={handleSubmit} className="student-form student-form-grid3">
           <div className="form-row">
-            <div className="form-group">
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label htmlFor="fullName">Full Name *</label>
-              <input
-                type="text"
-                id="fullName"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                className={errors.fullName ? 'error' : ''}
-                placeholder="Enter full name"
-              />
-              <small className="form-help-text">
-                Only letters and spaces allowed (2-50 characters)
-              </small>
+              <input type="text" id="fullName" name="fullName" value={formData.fullName} onChange={handleChange} className={errors.fullName ? 'error' : ''} placeholder="Enter full name" />
+              <small className="form-help-text">Only letters and spaces allowed (2-50 characters)</small>
               {errors.fullName && <span className="error-message">{errors.fullName}</span>}
             </div>
-
-            <div className="form-group">
-              <label htmlFor="email">Email *</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={errors.email ? 'error' : ''}
-                placeholder="Enter email address"
-              />
-              {errors.email && <span className="error-message">{errors.email}</span>}
-            </div>
           </div>
-
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="rollNumber">Roll Number *</label>
-              <input
-                type="text"
-                id="rollNumber"
-                name="rollNumber"
-                value={formData.rollNumber}
-                onChange={handleChange}
-                className={errors.rollNumber ? 'error' : ''}
-                placeholder="Enter roll number"
-                disabled={!!student} // Cannot edit roll number
-              />
+              <input type="text" id="rollNumber" name="rollNumber" value={formData.rollNumber} onChange={handleChange} className={errors.rollNumber ? 'error' : ''} placeholder="Enter roll number" disabled={!!student} />
               {errors.rollNumber && <span className="error-message">{errors.rollNumber}</span>}
             </div>
-
             <div className="form-group">
               <label htmlFor="className">Class *</label>
-              <input
-                type="text"
-                id="className"
-                name="className"
-                value={formData.className}
-                onChange={handleChange}
-                className={errors.className ? 'error' : ''}
-                placeholder="Enter class"
-              />
+              <input type="text" id="className" name="className" value={formData.className} onChange={handleChange} className={errors.className ? 'error' : ''} placeholder="Enter class" />
               {errors.className && <span className="error-message">{errors.className}</span>}
             </div>
-
+          </div>
+          <div className="form-row">
             <div className="form-group">
               <label htmlFor="section">Section *</label>
-              <input
-                type="text"
-                id="section"
-                name="section"
-                value={formData.section}
-                onChange={handleChange}
-                className={errors.section ? 'error' : ''}
-                placeholder="Enter section"
-                maxLength="2"
-              />
+              <input type="text" id="section" name="section" value={formData.section} onChange={handleChange} className={errors.section ? 'error' : ''} placeholder="Enter section" maxLength="2" />
               {errors.section && <span className="error-message">{errors.section}</span>}
             </div>
+            <div className="form-group">
+              <label htmlFor="email">Email *</label>
+              <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} className={errors.email ? 'error' : ''} placeholder="Enter email address" />
+              {errors.email && <span className="error-message">{errors.email}</span>}
+            </div>
           </div>
-
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="phoneNumber">Phone Number</label>
-              <input
-                type="tel"
-                id="phoneNumber"
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                className={errors.phoneNumber ? 'error' : ''}
-                placeholder="Enter 10-digit phone number"
-                maxLength="10"
-              />
-              <small className="form-help-text">
-                Optional - 10 digits only
-              </small>
+              <input type="tel" id="phoneNumber" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} className={errors.phoneNumber ? 'error' : ''} placeholder="Enter 10-digit phone number" maxLength="10" />
+              <small className="form-help-text">Optional - 10 digits only</small>
               {errors.phoneNumber && <span className="error-message">{errors.phoneNumber}</span>}
             </div>
-
             <div className="form-group">
               <label htmlFor="parentName">Parent Name</label>
-              <input
-                type="text"
-                id="parentName"
-                name="parentName"
-                value={formData.parentName}
-                onChange={handleChange}
-                placeholder="Enter parent name"
-                maxLength="50"
-              />
+              <input type="text" id="parentName" name="parentName" value={formData.parentName} onChange={handleChange} placeholder="Enter parent name" maxLength="50" />
             </div>
-
+          </div>
+          <div className="form-row">
             <div className="form-group">
               <label htmlFor="parentPhone">Parent Phone</label>
-              <input
-                type="tel"
-                id="parentPhone"
-                name="parentPhone"
-                value={formData.parentPhone}
-                onChange={handleChange}
-                className={errors.parentPhone ? 'error' : ''}
-                placeholder="Enter 10-digit phone number"
-                maxLength="10"
-              />
-              <small className="form-help-text">
-                Optional - 10 digits only
-              </small>
+              <input type="tel" id="parentPhone" name="parentPhone" value={formData.parentPhone} onChange={handleChange} className={errors.parentPhone ? 'error' : ''} placeholder="Enter 10-digit phone number" maxLength="10" />
+              <small className="form-help-text">Optional - 10 digits only</small>
               {errors.parentPhone && <span className="error-message">{errors.parentPhone}</span>}
             </div>
+            <div className="form-group"></div>
           </div>
-
-          <div className="form-group">
-            <label htmlFor="address">Address</label>
-            <textarea
-              id="address"
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              className={errors.address ? 'error' : ''}
-              placeholder="Enter address"
-              rows="3"
-              maxLength="200"
-            />
-            <small className="form-help-text">
-              Optional - Maximum 200 characters
-            </small>
-            {errors.address && <span className="error-message">{errors.address}</span>}
+          <div className="form-row">
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label htmlFor="address">Address</label>
+              <textarea id="address" name="address" value={formData.address} onChange={handleChange} className={errors.address ? 'error' : ''} placeholder="Enter address" rows="3" maxLength="200" />
+              <small className="form-help-text">Optional - Maximum 200 characters</small>
+              {errors.address && <span className="error-message">{errors.address}</span>}
+            </div>
           </div>
-
           <div className="form-actions">
-            <button
-              type="button"
-              className="cancel-btn"
-              onClick={onCancel}
-              disabled={isLoading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="save-btn"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Saving...' : <><FaSave /> Save Student</>}
-            </button>
+            <button type="button" className="cancel-btn" onClick={onCancel} disabled={isLoading}>Cancel</button>
+            <button type="submit" className="save-btn" disabled={isLoading}>{isLoading ? 'Saving...' : <><FaSave /> Save Student</>}</button>
           </div>
         </form>
       </div>

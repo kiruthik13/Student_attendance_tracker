@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = 'https://student-attendance-tracker-1-n2l2.onrender.com';
+const API_BASE_URL = 'http://localhost:5000';
 
 export const API_ENDPOINTS = {
   // Admin endpoints
@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
   
   // Attendance endpoints
   ATTENDANCE_MARK: `${API_BASE_URL}/api/attendance/mark`,
+  ATTENDANCE_BULK_MARK: `${API_BASE_URL}/api/attendance/bulk-mark`,
   ATTENDANCE_TODAY: `${API_BASE_URL}/api/attendance/today`,
   ATTENDANCE_CLASS: `${API_BASE_URL}/api/attendance/class`,
   
