@@ -88,7 +88,7 @@ const Register = ({ onSwitchToLogin }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.name,
+          fullName: formData.name, // <-- changed from 'name' to 'fullName'
           email: formData.email,
           password: formData.password
         }),

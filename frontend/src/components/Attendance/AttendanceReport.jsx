@@ -292,14 +292,34 @@ const AttendanceReport = () => {
   const exportToCSV = () => {
     if (!reports.length) return;
     const periodsToUse = periods && periods.length ? periods : [1,2,3,4,5,6,7];
-    const headers = ['Student Name', 'Roll Number', 'Class', 'Section', ...periodsToUse.map(p => `P${p} (${periodTimings[p]})`)];
-    const rows = reports.map(r => [
+    const periodDuration = 1; // 1 hour per period
+    const headers = [
+      'Student Name',
+      'Roll Number',
+      'Class',
+      'Section',
+      ...periodsToUse.map(p => `P${p} (${periodTimings[p]})`),
+      'Scheduled Hours',
+      'Attended Hours',
+      'Attendance %'
+    ];
+    const rows = reports.map(r => {
+      const periodStatuses = periodsToUse.map(period => r[`period${period}`] || '-');
+      const scheduled = periodsToUse.length * periodDuration;
+      // Count attended periods: present, late, half-day all count as attended
+      const attended = periodStatuses.filter(status => ['present', 'late', 'half-day'].includes((status || '').toLowerCase())).length * periodDuration;
+      const percentage = scheduled > 0 ? ((attended / scheduled) * 100).toFixed(2) : '0.00';
+      return [
       r.fullName || r.student?.fullName || '-',
       r.rollNumber || r.student?.rollNumber || '-',
       r.className || r.student?.className || '-',
       r.section || r.student?.section || '-',
-      ...periodsToUse.map(period => r[`period${period}`] || '-')
-    ]);
+        ...periodStatuses,
+        scheduled,
+        attended,
+        percentage
+      ];
+    });
     let csvContent = '';
     csvContent += headers.join(',') + '\n';
     rows.forEach(row => {

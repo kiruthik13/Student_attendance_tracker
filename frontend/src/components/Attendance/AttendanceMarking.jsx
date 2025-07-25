@@ -133,8 +133,8 @@ const AttendanceMarking = () => {
       const studentsData = await studentsRes.json();
       setStudents(studentsData.students);
       
-      // Fetch attendance for this class/section/session/date
-      const attendanceUrl = `${API_ENDPOINTS.ATTENDANCE_CLASS}?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}&session=${selectedSession}`;
+      // Fetch attendance for this class/section/date (remove session param)
+      const attendanceUrl = `${API_ENDPOINTS.ATTENDANCE_CLASS}?className=${selectedClass}&section=${selectedSection}&date=${selectedDate}`;
       console.log('Fetching attendance from:', attendanceUrl);
       
       const attendanceRes = await fetch(attendanceUrl, {
@@ -159,10 +159,10 @@ const AttendanceMarking = () => {
         allPeriods.forEach(period => {
           const att = attendanceData.attendance?.find(a => a.student && a.student._id === student._id && a.period === period);
           newAttendanceData[student._id][period] = {
-          status: att ? att.status : 'present',
+            status: att ? att.status : 'not-marked',
             remarks: att ? att.remarks : '',
             attendanceId: att ? att._id : null
-        };
+          };
         });
       });
       setAttendanceData(newAttendanceData);
@@ -191,7 +191,7 @@ const AttendanceMarking = () => {
     }));
   };
 
-  // Update handleBulkAction to support all periods
+  // Update handleBulkAction to support all periods in the session
   const handleBulkAction = (status) => {
     setAttendanceData(prev => {
       const updated = { ...prev };
@@ -201,6 +201,7 @@ const AttendanceMarking = () => {
             updated[studentId][period].status = status;
           });
         } else {
+          // If a specific period is selected, only update that period
           updated[studentId][bulkPeriod].status = status;
         }
       });
@@ -217,12 +218,12 @@ const AttendanceMarking = () => {
     }
     setSubmitting(true);
     const token = localStorage.getItem('token');
+    const validStatuses = ['present', 'absent', 'late', 'half-day'];
     const bulkData = [];
     Object.entries(attendanceData).forEach(([studentId, periodsObj]) => {
-      sessionPeriods.forEach(period => {
-        if (![1,2,3,4,5,6,7].includes(period)) return; // skip invalid
-        // Default status to 'present' if not set
+      [1,2,3,4,5,6,7].forEach(period => {
         const status = (periodsObj[period] && periodsObj[period].status) ? periodsObj[period].status : 'present';
+        if (!validStatuses.includes(status)) return; // skip 'not-marked' or any invalid
         const remarks = periodsObj[period]?.remarks || '';
         bulkData.push({
           student: studentId,
@@ -233,6 +234,13 @@ const AttendanceMarking = () => {
           period
         });
       });
+    });
+
+    // Log the payload for debugging
+    console.log('Submitting attendance:', {
+      date: selectedDate,
+      session: selectedSession,
+      attendance: bulkData
     });
     try {
       const res = await fetch(API_ENDPOINTS.ATTENDANCE_BULK_MARK, {
@@ -252,7 +260,16 @@ const AttendanceMarking = () => {
         fetchStudentsAndAttendance();
       } else {
         const data = await res.json();
-        toast.error(data.message || 'Failed to save some attendance records.');
+        // Log backend error for debugging
+        console.error('Backend error:', data);
+        if (data.errors && Array.isArray(data.errors)) {
+          data.errors.forEach((err, idx) => {
+            console.error(`Error ${idx + 1}:`, err);
+            toast.error(err.message || JSON.stringify(err));
+          });
+        } else {
+          toast.error(data.message || JSON.stringify(data) || 'Failed to save some attendance records.');
+        }
       }
     } catch (error) {
       toast.error('Network error while saving attendance.');
@@ -407,7 +424,6 @@ const AttendanceMarking = () => {
                     {sessionPeriods.map(period => (
                       <th key={period}>{`P${period}`}<br/>{periodLabels[period]}</th>
                     ))}
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
