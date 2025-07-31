@@ -10,7 +10,6 @@ import './App.css';
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [authMode, setAuthMode] = useState('login');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -28,10 +27,6 @@ function App() {
     setIsAuthenticated(false);
     localStorage.removeItem('token');
     localStorage.removeItem('adminId');
-  };
-
-  const switchAuthMode = (mode) => {
-    setAuthMode(mode);
   };
 
   if (isLoading) {
@@ -65,11 +60,7 @@ function App() {
               isAuthenticated ? (
                 <Navigate to="/dashboard" replace />
               ) : (
-                authMode === 'login' ? (
-                  <Login onSwitchToRegister={() => switchAuthMode('register')} />
-                ) : (
-                  <Register onSwitchToLogin={() => switchAuthMode('login')} />
-                )
+                <Login />
               )
             }
           />
@@ -79,7 +70,7 @@ function App() {
               isAuthenticated ? (
                 <Navigate to="/dashboard" replace />
               ) : (
-                <Login onSwitchToRegister={() => switchAuthMode('register')} />
+                <Login />
               )
             }
           />
@@ -89,7 +80,7 @@ function App() {
               isAuthenticated ? (
                 <Navigate to="/dashboard" replace />
               ) : (
-                <Register onSwitchToLogin={() => switchAuthMode('login')} />
+                <Register />
               )
             }
           />

@@ -63,14 +63,27 @@ router.post('/register', validateAdminRegistration, async (req, res) => {
 
     // Send welcome email
     try {
+      console.log('Attempting to send welcome email to:', email);
+      console.log('Email configuration check:', {
+        user: process.env.EMAIL_USER ? 'Set' : 'Not set',
+        password: process.env.EMAIL_PASSWORD ? 'Set' : 'Not set'
+      });
+      
       const emailResult = await sendEmail(email, 'welcomeEmail', [fullName, email]);
+      
       if (emailResult.success) {
         console.log('Welcome email sent successfully to:', email);
+        console.log('Message ID:', emailResult.messageId);
       } else {
         console.log('Failed to send welcome email:', emailResult.error);
+        // Don't fail registration if email fails
       }
     } catch (emailError) {
       console.error('Email sending error:', emailError);
+      console.error('Email error details:', {
+        message: emailError.message,
+        stack: emailError.stack
+      });
       // Don't fail the registration if email fails
     }
 
@@ -394,6 +407,45 @@ router.get('/verify-token', authenticateToken, requireActiveAdmin, (req, res) =>
     message: 'Token is valid',
     admin: req.admin
   });
+});
+
+// Test email endpoint
+router.post('/test-email', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    
+    if (!email || !name) {
+      return res.status(400).json({
+        message: 'Email and name are required'
+      });
+    }
+
+    console.log('Testing email functionality...');
+    console.log('Email config:', {
+      user: process.env.EMAIL_USER ? 'Set' : 'Not set',
+      password: process.env.EMAIL_PASSWORD ? 'Set' : 'Not set'
+    });
+
+    const emailResult = await sendEmail(email, 'welcomeEmail', [name, email]);
+    
+    if (emailResult.success) {
+      res.json({
+        message: 'Test email sent successfully!',
+        messageId: emailResult.messageId
+      });
+    } else {
+      res.status(500).json({
+        message: 'Failed to send test email',
+        error: emailResult.error
+      });
+    }
+  } catch (error) {
+    console.error('Test email error:', error);
+    res.status(500).json({
+      message: 'Test email failed',
+      error: error.message
+    });
+  }
 });
 
 // GET /api/admin/test - Test database connection and operations

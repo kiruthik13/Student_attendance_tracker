@@ -21,6 +21,8 @@ const AttendanceReport = () => {
   const [rangeReport, setRangeReport] = useState([]);
   const [rangeDates, setRangeDates] = useState([]);
   const [periods, setPeriods] = useState([]); // Added periods state
+  const [emailAddress, setEmailAddress] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     fetchClasses();
@@ -380,6 +382,49 @@ const AttendanceReport = () => {
     URL.revokeObjectURL(url);
   };
 
+  const sendReportViaEmail = async (reportType, reportData) => {
+    if (!emailAddress) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    if (!emailAddress.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_SEND_CSV_REPORT}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reportType,
+          reportData,
+          email: emailAddress
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Report sent successfully via email!');
+        setEmailAddress('');
+      } else {
+        toast.error(data.message || 'Failed to send report via email');
+      }
+    } catch (error) {
+      console.error('Error sending report via email:', error);
+      toast.error('Failed to send report via email');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const statusCounts = getStatusCounts();
 
   const getStudentDayStatus = (record) => {
@@ -453,8 +498,63 @@ const AttendanceReport = () => {
               {students.map(s => <option key={s._id} value={s._id}>{s.fullName}</option>)}
             </select>
           </div>
+          <div className="filter-group">
+            <label>Email Address</label>
+            <input 
+              type="email" 
+              value={emailAddress} 
+              onChange={e => setEmailAddress(e.target.value)}
+              placeholder="Enter email to send report"
+              style={{ width: '250px' }}
+            />
+          </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
             <button className="export-btn" onClick={exportToCSV} disabled={!reports.length}>Export CSV</button>
+            <button 
+              className="export-btn" 
+              style={{ marginLeft: 8, backgroundColor: '#28a745' }}
+              onClick={() => {
+                const periodsToUse = periods && periods.length ? periods : [1,2,3,4,5,6,7];
+                const headers = [
+                  'Student Name',
+                  'Roll Number',
+                  'Class',
+                  'Section',
+                  ...periodsToUse.map(p => `P${p} (${periodTimings[p]})`),
+                  'Scheduled Hours',
+                  'Attended Hours',
+                  'Attendance %'
+                ];
+                const rows = reports.map(r => {
+                  const periodStatuses = periodsToUse.map(period => r[`period${period}`] || '-');
+                  const scheduled = periodsToUse.length;
+                  const attended = periodStatuses.filter(status => ['present', 'late', 'half-day'].includes((status || '').toLowerCase())).length;
+                  const percentage = scheduled > 0 ? ((attended / scheduled) * 100).toFixed(2) : '0.00';
+                  return [
+                    r.fullName || r.student?.fullName || '-',
+                    r.rollNumber || r.student?.rollNumber || '-',
+                    r.className || r.student?.className || '-',
+                    r.section || r.student?.section || '-',
+                    ...periodStatuses,
+                    scheduled,
+                    attended,
+                    percentage
+                  ];
+                });
+                sendReportViaEmail('daily', { 
+                  headers, 
+                  rows, 
+                  date: selectedDate, 
+                  className: selectedClass, 
+                  section: selectedSection,
+                  totalStudents: reports.length,
+                  generatedAt: new Date().toLocaleString('en-IN')
+                });
+              }}
+              disabled={!reports.length || !emailAddress || sendingEmail}
+            >
+              {sendingEmail ? 'Sending...' : 'Send Email'}
+            </button>
           </div>
         </div>
       )}
@@ -482,8 +582,53 @@ const AttendanceReport = () => {
             <label>End Date</label>
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
           </div>
+          <div className="filter-group">
+            <label>Email Address</label>
+            <input 
+              type="email" 
+              value={emailAddress} 
+              onChange={e => setEmailAddress(e.target.value)}
+              placeholder="Enter email to send report"
+              style={{ width: '250px' }}
+            />
+          </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
             <button className="export-btn" onClick={exportRangeCSV} disabled={!rangeReport.length}>Export CSV</button>
+            <button 
+              className="export-btn" 
+              style={{ marginLeft: 8, backgroundColor: '#28a745' }}
+              onClick={() => {
+                if (!rangeReport.length || !rangeDates.length || !periods) return;
+                const headers = ['Student Name', 'Roll Number', 'Class', 'Section'];
+                rangeDates.forEach(date => {
+                  periods.forEach(period => {
+                    headers.push(`${date} P${period}`);
+                  });
+                });
+                const rows = rangeReport.map(r => {
+                  const row = [r.fullName, r.rollNumber, r.className, r.section];
+                  r.attendance.forEach(a => {
+                    periods.forEach(period => {
+                      row.push(a[`period${period}`]);
+                    });
+                  });
+                  return row;
+                });
+                sendReportViaEmail('range', { 
+                  headers, 
+                  rows, 
+                  startDate, 
+                  endDate, 
+                  className: selectedClass, 
+                  section: selectedSection,
+                  totalStudents: rangeReport.length,
+                  generatedAt: new Date().toLocaleString('en-IN')
+                });
+              }}
+              disabled={!rangeReport.length || !emailAddress || sendingEmail}
+            >
+              {sendingEmail ? 'Sending...' : 'Send Email'}
+            </button>
             <button className="export-btn" style={{ marginLeft: 8 }} onClick={fetchRangeReport} disabled={loading || !selectedClass || !selectedSection || !startDate || !endDate}>Fetch Report</button>
           </div>
         </div>
@@ -505,8 +650,45 @@ const AttendanceReport = () => {
             <label>End Date</label>
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
           </div>
+          <div className="filter-group">
+            <label>Email Address</label>
+            <input 
+              type="email" 
+              value={emailAddress} 
+              onChange={e => setEmailAddress(e.target.value)}
+              placeholder="Enter email to send report"
+              style={{ width: '250px' }}
+            />
+          </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
             <button className="export-btn" onClick={exportToCSV} disabled={!reports.length}>Export CSV</button>
+            <button 
+              className="export-btn" 
+              style={{ marginLeft: 8, backgroundColor: '#28a745' }}
+              onClick={() => {
+                if (!reports.length) return;
+                const selectedStudentData = students.find(s => s._id === selectedStudent);
+                const headers = ['Date', 'Period', 'Status', 'Remarks'];
+                const rows = reports.map(r => [
+                  r.date,
+                  r.period,
+                  r.status,
+                  r.remarks || ''
+                ]);
+                sendReportViaEmail('student', { 
+                  headers, 
+                  rows, 
+                  studentName: selectedStudentData?.fullName || 'Unknown Student',
+                  startDate, 
+                  endDate,
+                  totalRecords: reports.length,
+                  generatedAt: new Date().toLocaleString('en-IN')
+                });
+              }}
+              disabled={!reports.length || !emailAddress || sendingEmail}
+            >
+              {sendingEmail ? 'Sending...' : 'Send Email'}
+            </button>
           </div>
         </div>
       )}

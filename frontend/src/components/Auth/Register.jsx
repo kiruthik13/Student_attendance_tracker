@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { FaUser, FaLock, FaEye, FaEyeSlash, FaGraduationCap, FaCheck, FaTimes } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { FaGraduationCap, FaUser, FaEye, FaEyeSlash, FaCheck, FaTimes } from 'react-icons/fa';
 import { MdEmail, MdPerson } from 'react-icons/md';
 import { API_ENDPOINTS } from '../../config/api';
 import './Auth.css';
 
-const Register = ({ onSwitchToLogin }) => {
+const Register = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -107,7 +110,7 @@ const Register = ({ onSwitchToLogin }) => {
         
         // Auto switch to login after 2 seconds
         setTimeout(() => {
-          onSwitchToLogin();
+          navigate('/login');
         }, 2000);
       } else {
         setErrors({ general: data.message || 'Registration failed. Please try again.' });
@@ -340,13 +343,15 @@ const Register = ({ onSwitchToLogin }) => {
               <button
                 type="button"
                 className="auth-link"
-                onClick={onSwitchToLogin}
+                onClick={() => navigate('/login')}
                 style={{
                   background: 'none',
                   border: 'none',
                   padding: 0,
                   font: 'inherit',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  color: '#3b82f6',
+                  textDecoration: 'underline'
                 }}
               >
                 Sign in here

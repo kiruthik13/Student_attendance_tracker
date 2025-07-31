@@ -7,8 +7,158 @@ const {
   validateBulkAttendance
 } = require('../middleware/validation');
 const ExcelJS = require('exceljs'); // Add at the top with other requires
+const { sendEmail } = require('../config/email');
 
 const router = express.Router();
+
+// Test endpoint without authentication
+router.get('/test', (req, res) => {
+  res.json({ message: 'Attendance routes are working!' });
+});
+
+// GET /api/attendance/dashboard-stats - Get dashboard statistics for today
+router.get('/dashboard-stats', authenticateToken, requireActiveAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Get all active students
+    const students = await Student.find({ isActive: true }).select('fullName rollNumber className section');
+    const totalStudents = students.length;
+
+    // Get today's attendance records
+    const attendanceRecords = await Attendance.find({
+      date: { $gte: today, $lt: tomorrow }
+    }).populate('student', 'fullName rollNumber className section');
+
+    // Process attendance data
+    let presentStudents = 0;
+    let absentStudents = 0;
+    let totalPresentPeriods = 0;
+    let totalMarkedPeriods = 0;
+
+    // Create a map of student attendance
+    const studentAttendanceMap = {};
+    attendanceRecords.forEach(record => {
+      const studentId = record.student._id.toString();
+      if (!studentAttendanceMap[studentId]) {
+        studentAttendanceMap[studentId] = {
+          forenoonPeriods: 0,
+          afternoonPeriods: 0,
+          presentPeriods: 0,
+          totalPeriods: 0
+        };
+      }
+
+      // Count forenoon periods
+      if (record.forenoon && record.forenoon.periods) {
+        record.forenoon.periods.forEach(period => {
+          studentAttendanceMap[studentId].forenoonPeriods++;
+          studentAttendanceMap[studentId].totalPeriods++;
+          if (period.status === 'present') {
+            studentAttendanceMap[studentId].presentPeriods++;
+          }
+        });
+      }
+
+      // Count afternoon periods
+      if (record.afternoon && record.afternoon.periods) {
+        record.afternoon.periods.forEach(period => {
+          studentAttendanceMap[studentId].afternoonPeriods++;
+          studentAttendanceMap[studentId].totalPeriods++;
+          if (period.status === 'present') {
+            studentAttendanceMap[studentId].presentPeriods++;
+          }
+        });
+      }
+    });
+
+    // Calculate statistics
+    Object.values(studentAttendanceMap).forEach(studentData => {
+      totalPresentPeriods += studentData.presentPeriods;
+      totalMarkedPeriods += studentData.totalPeriods;
+
+      // A student is considered present if they have any present periods
+      if (studentData.presentPeriods > 0) {
+        presentStudents++;
+      } else if (studentData.totalPeriods > 0) {
+        absentStudents++;
+      }
+    });
+
+    // Students with no attendance marked
+    const studentsWithNoAttendance = totalStudents - presentStudents - absentStudents;
+
+    // Calculate attendance rate
+    const attendanceRate = totalMarkedPeriods > 0 
+      ? Math.round((totalPresentPeriods / totalMarkedPeriods) * 100) 
+      : 0;
+
+    // Get recent attendance data for chart
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+      
+      const dayAttendance = await Attendance.find({
+        date: { $gte: date, $lt: nextDay }
+      });
+      
+      let dayPresentPeriods = 0;
+      let dayTotalPeriods = 0;
+      
+      dayAttendance.forEach(record => {
+        if (record.forenoon && record.forenoon.periods) {
+          record.forenoon.periods.forEach(period => {
+            dayTotalPeriods++;
+            if (period.status === 'present') dayPresentPeriods++;
+          });
+        }
+        if (record.afternoon && record.afternoon.periods) {
+          record.afternoon.periods.forEach(period => {
+            dayTotalPeriods++;
+            if (period.status === 'present') dayPresentPeriods++;
+          });
+        }
+      });
+      
+      const dayRate = dayTotalPeriods > 0 ? Math.round((dayPresentPeriods / dayTotalPeriods) * 100) : 0;
+      
+      last7Days.push({
+        date: date.toISOString().split('T')[0],
+        rate: dayRate,
+        presentPeriods: dayPresentPeriods,
+        totalPeriods: dayTotalPeriods
+      });
+    }
+
+    res.json({
+      today: {
+        totalStudents,
+        presentStudents,
+        absentStudents,
+        studentsWithNoAttendance,
+        attendanceRate,
+        totalPresentPeriods,
+        totalMarkedPeriods
+      },
+      last7Days,
+      lastUpdated: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Get dashboard stats error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch dashboard statistics'
+    });
+  }
+});
 
 // POST /api/attendance/mark - Mark attendance for a single student
 router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMarking, async (req, res) => {
@@ -1241,5 +1391,115 @@ router.get('/student-report', authenticateToken, requireActiveAdmin, async (req,
     res.status(500).json({ message: 'Failed to fetch student attendance report' });
   }
 });
+
+// POST /api/attendance/send-csv-report - Send CSV report via email
+router.post('/send-csv-report', authenticateToken, requireActiveAdmin, async (req, res) => {
+  try {
+    const { reportType, reportData, email, fileName } = req.body;
+    
+    if (!reportType || !reportData || !email) {
+      return res.status(400).json({
+        message: 'Missing required fields: reportType, reportData, email'
+      });
+    }
+
+    // Generate CSV content
+    let csvContent = '';
+    let subject = '';
+    let emailTemplate = '';
+
+    if (reportType === 'daily') {
+      const { headers, rows, date, className, section } = reportData;
+      csvContent = generateCSVContent(headers, rows);
+      subject = `📊 Daily Attendance Report - ${className} Section ${section} - ${date}`;
+      emailTemplate = 'csvReportEmail';
+    } else if (reportType === 'range') {
+      const { headers, rows, startDate, endDate, className, section } = reportData;
+      csvContent = generateCSVContent(headers, rows);
+      subject = `📊 Date Range Attendance Report - ${className} Section ${section} - ${startDate} to ${endDate}`;
+      emailTemplate = 'csvReportEmail';
+    } else if (reportType === 'student') {
+      const { headers, rows, studentName, startDate, endDate } = reportData;
+      csvContent = generateCSVContent(headers, rows);
+      subject = `📊 Student Attendance Report - ${studentName} - ${startDate} to ${endDate}`;
+      emailTemplate = 'csvReportEmail';
+    } else {
+      return res.status(400).json({
+        message: 'Invalid report type'
+      });
+    }
+
+    // Send email with CSV attachment
+    console.log('Sending email with data:', {
+      email,
+      subject,
+      reportType,
+      reportData: {
+        rows: reportData.rows ? reportData.rows.length : 0,
+        className: reportData.className,
+        section: reportData.section,
+        date: reportData.date,
+        startDate: reportData.startDate,
+        endDate: reportData.endDate,
+        studentName: reportData.studentName
+      }
+    });
+    
+    const emailResult = await sendEmail(email, emailTemplate, 
+      subject,
+      csvContent,
+      fileName || 'attendance_report.csv',
+      reportType,
+      reportData
+    );
+
+    if (emailResult.success) {
+      res.json({
+        message: 'CSV report sent successfully via email',
+        messageId: emailResult.messageId
+      });
+    } else {
+      res.status(500).json({
+        message: 'Failed to send CSV report via email',
+        error: emailResult.error
+      });
+    }
+
+  } catch (error) {
+    console.error('Send CSV report error:', error);
+    res.status(500).json({
+      message: 'Failed to send CSV report via email',
+      error: error.message
+    });
+  }
+});
+
+// Helper function to generate CSV content
+function generateCSVContent(headers, rows) {
+  let csvContent = '';
+  
+  // Add metadata header
+  csvContent += '"KONGU ENGINEERING COLLEGE - ATTENDANCE REPORT"\n';
+  csvContent += `"Generated on: ${new Date().toLocaleString('en-IN')}"\n`;
+  csvContent += `"Total Records: ${rows.length}"\n`;
+  csvContent += '""\n'; // Empty line for spacing
+  
+  // Add headers
+  csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
+  
+  // Add data rows
+  rows.forEach(row => {
+    csvContent += row.map(field => `"${(field ?? '').toString().replace(/"/g, '""')}"`).join(',') + '\n';
+  });
+  
+  // Add summary footer
+  csvContent += '""\n'; // Empty line for spacing
+  csvContent += '"Report Summary:"\n';
+  csvContent += `"Total Students: ${rows.length}"\n`;
+  csvContent += `"Report Generated: ${new Date().toLocaleString('en-IN')}"\n`;
+  csvContent += '"© 2024 Kongu Engineering College. All rights reserved."\n';
+  
+  return csvContent;
+}
 
 module.exports = router; 

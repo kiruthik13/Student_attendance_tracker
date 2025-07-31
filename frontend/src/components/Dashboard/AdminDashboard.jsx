@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FaGraduationCap, FaUsers, FaCalendarCheck, FaChartBar, FaSignOutAlt, FaUserPlus, FaClipboardList, FaChartLine, FaPlus, FaList, FaUserGraduate } from 'react-icons/fa';
+import { FaGraduationCap, FaUsers, FaCalendarCheck, FaChartBar, FaSignOutAlt, FaUserPlus, FaClipboardList, FaChartLine, FaPlus, FaList, FaUserGraduate, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 import { MdDashboard, MdSchool, MdAssessment } from 'react-icons/md';
 import StudentList from '../Students/StudentList';
 import StudentForm from '../Students/StudentForm';
@@ -16,10 +16,15 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState({
     totalStudents: 0,
-    presentToday: 0,
-    absentToday: 0,
-    attendanceRate: 0
+    presentStudents: 0,
+    absentStudents: 0,
+    studentsWithNoAttendance: 0,
+    attendanceRate: 0,
+    totalPresentPeriods: 0,
+    totalMarkedPeriods: 0
   });
+  const [last7Days, setLast7Days] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -27,7 +32,34 @@ const AdminDashboard = () => {
 
   const fetchDashboardStats = async () => {
     try {
+      setIsLoading(true);
       const token = localStorage.getItem('token');
+      
+      if (!token) {
+        console.error('No token found');
+        toast.error('Authentication required. Please login again.');
+        handleLogout();
+        return;
+      }
+
+      console.log('Fetching dashboard stats using fallback method');
+      
+      // Use the fallback method directly since the new endpoint isn't working
+      await fetchDashboardStatsFallback();
+      
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      toast.error('Failed to load dashboard statistics: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDashboardStatsFallback = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Fetching students and attendance data...');
+      
       const [studentsResponse, attendanceResponse] = await Promise.all([
         fetch(API_ENDPOINTS.STUDENTS, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -40,66 +72,104 @@ const AdminDashboard = () => {
       const studentsData = await studentsResponse.json();
       const attendanceData = await attendanceResponse.json();
 
+      console.log('Students data:', studentsData);
+      console.log('Attendance data:', attendanceData);
+
       const totalStudents = studentsData.students?.length || 0;
       const attendanceRecords = attendanceData.attendance || [];
 
-      // Group attendance by student
-      const studentAttendanceMap = {};
-      attendanceRecords.forEach(a => {
-        const sid = a.student?._id || a.student;
-        if (!studentAttendanceMap[sid]) studentAttendanceMap[sid] = [];
-        studentAttendanceMap[sid].push(a);
-      });
+      console.log(`Total students: ${totalStudents}`);
+      console.log(`Attendance records: ${attendanceRecords.length}`);
 
-      let presentToday = 0;
-      let absentToday = 0;
+      // Process attendance data more accurately
+      let presentStudents = 0;
+      let absentStudents = 0;
       let totalPresentPeriods = 0;
       let totalMarkedPeriods = 0;
+      let studentsWithNoAttendance = 0;
 
-      studentsData.students.forEach(student => {
-        const sid = student._id;
-        const records = studentAttendanceMap[sid] || [];
-        // For this student, count periods
-        let studentPresentPeriods = 0;
-        let studentMarkedPeriods = 0;
-        records.forEach(r => {
-          if (["present", "late", "half-day"].includes(r.status)) {
-            studentPresentPeriods++;
-          }
-          if (["present", "late", "half-day", "absent"].includes(r.status)) {
-            studentMarkedPeriods++;
-          }
-        });
-        totalPresentPeriods += studentPresentPeriods;
-        totalMarkedPeriods += studentMarkedPeriods;
+      // Create a map of student attendance
+      const studentAttendanceMap = {};
+      attendanceRecords.forEach(record => {
+        const studentId = record.student?._id || record.student;
+        if (!studentAttendanceMap[studentId]) {
+          studentAttendanceMap[studentId] = {
+            presentPeriods: 0,
+            totalPeriods: 0
+          };
+        }
 
-        if (studentPresentPeriods > 0) {
-          presentToday++;
+        // Count periods based on the attendance record structure
+        if (record.forenoon && record.forenoon.periods) {
+          record.forenoon.periods.forEach(period => {
+            studentAttendanceMap[studentId].totalPeriods++;
+            if (period.status === 'present') {
+              studentAttendanceMap[studentId].presentPeriods++;
+            }
+          });
+        }
+
+        if (record.afternoon && record.afternoon.periods) {
+          record.afternoon.periods.forEach(period => {
+            studentAttendanceMap[studentId].totalPeriods++;
+            if (period.status === 'present') {
+              studentAttendanceMap[studentId].presentPeriods++;
+            }
+          });
         }
       });
 
-      absentToday = totalStudents - presentToday;
+      console.log('Student attendance map:', studentAttendanceMap);
 
-      // Attendance rate: present periods / total marked periods
-      const attendanceRate = totalMarkedPeriods > 0
-        ? Math.round((totalPresentPeriods / totalMarkedPeriods) * 100)
+      // Calculate statistics
+      studentsData.students.forEach(student => {
+        const studentId = student._id;
+        const studentData = studentAttendanceMap[studentId];
+        
+        if (studentData && studentData.totalPeriods > 0) {
+          totalPresentPeriods += studentData.presentPeriods;
+          totalMarkedPeriods += studentData.totalPeriods;
+          
+          if (studentData.presentPeriods > 0) {
+            presentStudents++;
+          } else {
+            absentStudents++;
+          }
+        } else {
+          studentsWithNoAttendance++;
+        }
+      });
+
+      // Calculate attendance rate
+      const attendanceRate = totalMarkedPeriods > 0 
+        ? Math.round((totalPresentPeriods / totalMarkedPeriods) * 100) 
         : 0;
 
-      setStats({
+      const statsData = {
         totalStudents,
-        presentToday,
-        absentToday,
-        attendanceRate
-      });
+        presentStudents,
+        absentStudents,
+        studentsWithNoAttendance,
+        attendanceRate,
+        totalPresentPeriods,
+        totalMarkedPeriods
+      };
+
+      console.log('Calculated stats:', statsData);
+
+      setStats(statsData);
+      setLast7Days([]);
+      setLastUpdated(new Date().toISOString());
+      
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Fallback dashboard stats error:', error);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('adminId');
-    window.location.href = '/';
+    localStorage.removeItem('admin');
+    window.location.href = '/login';
   };
 
   const navigationItems = [
@@ -118,6 +188,9 @@ const AdminDashboard = () => {
             <div className="content-header">
               <h1 className="welcome-message">Welcome to Student Attendance Tracker</h1>
               <p className="welcome-subtitle">Manage your students and track attendance efficiently</p>
+              {lastUpdated && (
+                <p className="last-updated">Last updated: {new Date(lastUpdated).toLocaleString()}</p>
+              )}
             </div>
 
             <div className="stats-grid">
@@ -135,22 +208,22 @@ const AdminDashboard = () => {
               <div className="stat-card">
                 <div className="stat-header">
                   <span className="stat-title">Present Today</span>
-                  <div className="stat-icon">
+                  <div className="stat-icon present">
                     <FaCalendarCheck />
                   </div>
                 </div>
-                <div className="stat-value">{stats.presentToday}</div>
+                <div className="stat-value">{stats.presentStudents}</div>
                 <div className="stat-description">Students present today</div>
               </div>
 
               <div className="stat-card">
                 <div className="stat-header">
                   <span className="stat-title">Absent Today</span>
-                  <div className="stat-icon">
-                    <FaClipboardList />
+                  <div className="stat-icon absent">
+                    <FaExclamationTriangle />
                   </div>
                 </div>
-                <div className="stat-value">{stats.absentToday}</div>
+                <div className="stat-value">{stats.absentStudents}</div>
                 <div className="stat-description">Students absent today</div>
               </div>
 
@@ -163,6 +236,28 @@ const AdminDashboard = () => {
                 </div>
                 <div className="stat-value">{stats.attendanceRate}%</div>
                 <div className="stat-description">Today's attendance rate</div>
+              </div>
+
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-title">Not Marked</span>
+                  <div className="stat-icon pending">
+                    <FaClock />
+                  </div>
+                </div>
+                <div className="stat-value">{stats.studentsWithNoAttendance}</div>
+                <div className="stat-description">Students not marked</div>
+              </div>
+
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-title">Periods Marked</span>
+                  <div className="stat-icon">
+                    <FaClipboardList />
+                  </div>
+                </div>
+                <div className="stat-value">{stats.totalMarkedPeriods}</div>
+                <div className="stat-description">Total periods marked today</div>
               </div>
             </div>
 

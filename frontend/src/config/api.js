@@ -20,6 +20,8 @@ export const API_ENDPOINTS = {
   ATTENDANCE_TODAY: `${API_BASE_URL}/api/attendance/today`,
   ATTENDANCE_CLASS: `${API_BASE_URL}/api/attendance/class`,
   ATTENDANCE_RANGE_REPORT: `${API_BASE_URL}/api/attendance/range-report`,
+  ATTENDANCE_DASHBOARD_STATS: `${API_BASE_URL}/api/attendance/dashboard-stats`,
+  ATTENDANCE_SEND_CSV_REPORT: `${API_BASE_URL}/api/attendance/send-csv-report`,
   
   // Health check
   HEALTH: `${API_BASE_URL}/api/health`

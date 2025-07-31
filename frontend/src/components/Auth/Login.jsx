@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { FaUser, FaLock, FaEye, FaEyeSlash, FaGraduationCap } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { FaGraduationCap, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
 import { API_ENDPOINTS } from '../../config/api';
 import './Auth.css';
 
-const Login = ({ onSwitchToRegister }) => {
+const Login = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -216,13 +219,15 @@ const Login = ({ onSwitchToRegister }) => {
               <button
                 type="button"
                 className="auth-link"
-                onClick={onSwitchToRegister}
+                onClick={() => navigate('/register')}
                 style={{
                   background: 'none',
                   border: 'none',
                   padding: 0,
                   font: 'inherit',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  color: '#3b82f6',
+                  textDecoration: 'underline'
                 }}
               >
                 Create one here
