@@ -1,13 +1,8 @@
 const mongoose = require('mongoose');
 
 // Period mapping:
-// 1: 8:45-9:35 am (Forenoon)
-// 2: 9:35-10:25 am (Forenoon)
-// 3: 10:45-11:35 am (Forenoon)
-// 4: 11:35 am-12:25 pm (Forenoon)
-// 5: 1:25-2:15 pm (Afternoon)
-// 6: 2:15-3:05 pm (Afternoon)
-// 7: 3:25-4:15 pm (Afternoon)
+// Forenoon: [1, 2, 3, 4] - 8:45-9:35 am, 9:35-10:25 am, 10:45-11:35 am, 11:35 am-12:25 pm
+// Afternoon: [5, 6, 7] - 1:25-2:15 pm, 2:15-3:05 pm, 3:25-4:15 pm
 
 const attendanceSchema = new mongoose.Schema({
   student: {
@@ -20,27 +15,45 @@ const attendanceSchema = new mongoose.Schema({
     required: [true, 'Date is required'],
     default: Date.now
   },
-  session: {
-    type: String,
-    enum: ['forenoon', 'afternoon'],
-    required: [true, 'Session is required'],
-    default: 'forenoon'
+  forenoon: {
+    periods: [{
+      period: {
+        type: Number,
+        enum: [1, 2, 3, 4],
+        required: true
+      },
+      status: {
+        type: String,
+        enum: ['present', 'absent', 'late', 'half-day'],
+        required: true
+      },
+      remarks: {
+        type: String,
+        trim: true,
+        maxlength: [200, 'Remarks cannot exceed 200 characters']
+      }
+    }],
+    default: []
   },
-  period: {
-    type: Number,
-    enum: [1, 2, 3, 4, 5, 6, 7],
-    required: [true, 'Period is required']
-  },
-  status: {
-    type: String,
-    enum: ['present', 'absent', 'late', 'half-day'],
-    required: [true, 'Attendance status is required'],
-    default: 'present'
-  },
-  remarks: {
-    type: String,
-    trim: true,
-    maxlength: [200, 'Remarks cannot exceed 200 characters']
+  afternoon: {
+    periods: [{
+      period: {
+        type: Number,
+        enum: [5, 6, 7],
+        required: true
+      },
+      status: {
+        type: String,
+        enum: ['present', 'absent', 'late', 'half-day'],
+        required: true
+      },
+      remarks: {
+        type: String,
+        trim: true,
+        maxlength: [200, 'Remarks cannot exceed 200 characters']
+      }
+    }],
+    default: []
   },
   markedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -59,8 +72,8 @@ const attendanceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index to ensure one attendance record per student per date, session, and period
-attendanceSchema.index({ student: 1, date: 1, session: 1, period: 1 }, { unique: true });
+// Compound index to ensure one attendance record per student per date
+attendanceSchema.index({ student: 1, date: 1 }, { unique: true });
 
 // Static method to find attendance by student and date
 attendanceSchema.statics.findByStudentAndDate = function(studentId, date) {
@@ -76,6 +89,18 @@ attendanceSchema.statics.findByStudentAndDate = function(studentId, date) {
       $gte: startOfDay,
       $lte: endOfDay
     }
+  });
+};
+
+// Static method to get all attendance records for a student on a specific date (all periods)
+attendanceSchema.statics.getAllPeriodsForStudentAndDate = function(studentId, date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+  return this.find({
+    student: studentId,
+    date: { $gte: startOfDay, $lte: endOfDay }
   });
 };
 
@@ -141,11 +166,31 @@ attendanceSchema.statics.getStudentStats = async function(studentId, startDate, 
     }
   });
 
-  const total = attendance.length;
-  const present = attendance.filter(a => a.status === 'present').length;
-  const absent = attendance.filter(a => a.status === 'absent').length;
-  const late = attendance.filter(a => a.status === 'late').length;
-  const halfDay = attendance.filter(a => a.status === 'half-day').length;
+  let total = 0;
+  let present = 0;
+  let absent = 0;
+  let late = 0;
+  let halfDay = 0;
+
+  attendance.forEach(record => {
+    // Count forenoon periods
+    record.forenoon.periods.forEach(p => {
+      total++;
+      if (p.status === 'present') present++;
+      else if (p.status === 'absent') absent++;
+      else if (p.status === 'late') late++;
+      else if (p.status === 'half-day') halfDay++;
+    });
+
+    // Count afternoon periods
+    record.afternoon.periods.forEach(p => {
+      total++;
+      if (p.status === 'present') present++;
+      else if (p.status === 'absent') absent++;
+      else if (p.status === 'late') late++;
+      else if (p.status === 'half-day') halfDay++;
+    });
+  });
 
   return {
     total,

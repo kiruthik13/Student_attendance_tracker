@@ -1,17 +1,24 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const Admin = require('../models/Admin');
 const config = require('../config/config');
+const { sendEmail } = require('../config/email');
 const { authenticateToken, requireActiveAdmin } = require('../middleware/auth');
 const {
   validateAdminRegistration,
   validateAdminLogin,
   validatePasswordUpdate,
-  validateProfileUpdate
+  validateProfileUpdate,
+  validatePasswordResetRequest,
+  validatePasswordReset
 } = require('../middleware/validation');
 
 const router = express.Router();
+
+// Store reset tokens (in production, use Redis or database)
+const resetTokens = new Map();
 
 // Generate JWT token
 const generateToken = (adminId) => {
@@ -20,6 +27,11 @@ const generateToken = (adminId) => {
     config.jwtSecret,
     { expiresIn: config.jwtExpiresIn }
   );
+};
+
+// Generate reset token
+const generateResetToken = () => {
+  return crypto.randomBytes(32).toString('hex');
 };
 
 // POST /api/admin/register - Register new admin
@@ -49,12 +61,25 @@ router.post('/register', validateAdminRegistration, async (req, res) => {
     const savedAdmin = await admin.save();
     console.log('Admin saved successfully:', savedAdmin._id);
 
+    // Send welcome email
+    try {
+      const emailResult = await sendEmail(email, 'welcomeEmail', [fullName, email]);
+      if (emailResult.success) {
+        console.log('Welcome email sent successfully to:', email);
+      } else {
+        console.log('Failed to send welcome email:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+      // Don't fail the registration if email fails
+    }
+
     // Generate token
     const token = generateToken(savedAdmin._id);
 
     // Return admin data (without password) and token
     res.status(201).json({
-      message: 'Admin registered successfully',
+      message: 'Admin registered successfully. Welcome email sent to your inbox.',
       token,
       admin: savedAdmin.getPublicProfile()
     });
@@ -142,6 +167,120 @@ router.post('/login', validateAdminLogin, async (req, res) => {
     res.status(500).json({
       message: 'Login failed. Please try again.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// POST /api/admin/forgot-password - Request password reset
+router.post('/forgot-password', validatePasswordResetRequest, async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    console.log('Password reset request for email:', email);
+
+    // Find admin by email
+    const admin = await Admin.findByEmail(email);
+    if (!admin) {
+      // Don't reveal if email exists or not for security
+      return res.json({
+        message: 'If an account with this email exists, a password reset link has been sent.'
+      });
+    }
+
+    // Check if admin is active
+    if (!admin.isActive) {
+      return res.status(400).json({
+        message: 'Account is deactivated. Please contact administrator.'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = generateResetToken();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Store reset token
+    resetTokens.set(resetToken, {
+      adminId: admin._id,
+      email: admin.email,
+      expiresAt
+    });
+
+    // Send password reset email
+    try {
+      const emailResult = await sendEmail(email, 'passwordResetEmail', [admin.fullName, resetToken]);
+      if (emailResult.success) {
+        console.log('Password reset email sent successfully to:', email);
+      } else {
+        console.log('Failed to send password reset email:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+      return res.status(500).json({
+        message: 'Failed to send password reset email. Please try again.'
+      });
+    }
+
+    res.json({
+      message: 'If an account with this email exists, a password reset link has been sent.'
+    });
+
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    res.status(500).json({
+      message: 'Failed to process password reset request. Please try again.'
+    });
+  }
+});
+
+// POST /api/admin/reset-password - Reset password with token
+router.post('/reset-password', validatePasswordReset, async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    
+    console.log('Password reset attempt with token');
+
+    // Find reset token
+    const resetData = resetTokens.get(token);
+    if (!resetData) {
+      return res.status(400).json({
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    // Check if token is expired
+    if (new Date() > resetData.expiresAt) {
+      resetTokens.delete(token);
+      return res.status(400).json({
+        message: 'Reset token has expired'
+      });
+    }
+
+    // Find admin
+    const admin = await Admin.findById(resetData.adminId);
+    if (!admin) {
+      resetTokens.delete(token);
+      return res.status(400).json({
+        message: 'Invalid reset token'
+      });
+    }
+
+    // Update password
+    admin.password = newPassword;
+    await admin.save();
+
+    // Remove used token
+    resetTokens.delete(token);
+
+    console.log('Password reset successful for admin:', admin._id);
+
+    res.json({
+      message: 'Password reset successfully. You can now login with your new password.'
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({
+      message: 'Failed to reset password. Please try again.'
     });
   }
 });

@@ -6,6 +6,8 @@ export const API_ENDPOINTS = {
   ADMIN_LOGIN: `${API_BASE_URL}/api/admin/login`,
   ADMIN_REGISTER: `${API_BASE_URL}/api/admin/register`,
   ADMIN_PROFILE: `${API_BASE_URL}/api/admin/profile`,
+  ADMIN_FORGOT_PASSWORD: `${API_BASE_URL}/api/admin/forgot-password`,
+  ADMIN_RESET_PASSWORD: `${API_BASE_URL}/api/admin/reset-password`,
   
   // Student endpoints
   STUDENTS: `${API_BASE_URL}/api/students`,
@@ -17,6 +19,7 @@ export const API_ENDPOINTS = {
   ATTENDANCE_BULK_MARK: `${API_BASE_URL}/api/attendance/bulk-mark`,
   ATTENDANCE_TODAY: `${API_BASE_URL}/api/attendance/today`,
   ATTENDANCE_CLASS: `${API_BASE_URL}/api/attendance/class`,
+  ATTENDANCE_RANGE_REPORT: `${API_BASE_URL}/api/attendance/range-report`,
   
   // Health check
   HEALTH: `${API_BASE_URL}/api/health`

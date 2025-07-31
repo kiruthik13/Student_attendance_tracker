@@ -85,6 +85,32 @@ const validateProfileUpdate = [
   handleValidationErrors
 ];
 
+// Validation rules for password reset request
+const validatePasswordResetRequest = [
+  body('email')
+    .isEmail()
+    .withMessage('Please enter a valid email address')
+    .normalizeEmail()
+    .toLowerCase(),
+  
+  handleValidationErrors
+];
+
+// Validation rules for password reset
+const validatePasswordReset = [
+  body('token')
+    .notEmpty()
+    .withMessage('Reset token is required')
+    .isLength({ min: 64, max: 64 })
+    .withMessage('Invalid reset token format'),
+  
+  body('newPassword')
+    .isLength({ min: 6 })
+    .withMessage('New password must be at least 6 characters long'),
+  
+  handleValidationErrors
+];
+
 // Validation rules for student creation
 const validateStudentCreation = [
   body('fullName')
@@ -209,6 +235,9 @@ const validateBulkAttendance = [
     .optional()
     .isISO8601()
     .withMessage('Valid date is required'),
+  body('session')
+    .isIn(['forenoon', 'afternoon', 'all'])
+    .withMessage('Session must be forenoon, afternoon, or all'),
   body('attendanceData')
     .isArray({ min: 1 })
     .withMessage('At least one attendance record is required'),
@@ -234,6 +263,8 @@ module.exports = {
   validateAdminLogin,
   validatePasswordUpdate,
   validateProfileUpdate,
+  validatePasswordResetRequest,
+  validatePasswordReset,
   validateStudentCreation,
   validateStudentUpdate,
   validateAttendanceMarking,

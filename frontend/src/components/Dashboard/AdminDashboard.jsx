@@ -41,9 +41,49 @@ const AdminDashboard = () => {
       const attendanceData = await attendanceResponse.json();
 
       const totalStudents = studentsData.students?.length || 0;
-      const presentToday = attendanceData.attendance?.filter(a => a.status === 'present').length || 0;
-      const absentToday = attendanceData.attendance?.filter(a => a.status === 'absent').length || 0;
-      const attendanceRate = totalStudents > 0 ? Math.round((presentToday / totalStudents) * 100) : 0;
+      const attendanceRecords = attendanceData.attendance || [];
+
+      // Group attendance by student
+      const studentAttendanceMap = {};
+      attendanceRecords.forEach(a => {
+        const sid = a.student?._id || a.student;
+        if (!studentAttendanceMap[sid]) studentAttendanceMap[sid] = [];
+        studentAttendanceMap[sid].push(a);
+      });
+
+      let presentToday = 0;
+      let absentToday = 0;
+      let totalPresentPeriods = 0;
+      let totalMarkedPeriods = 0;
+
+      studentsData.students.forEach(student => {
+        const sid = student._id;
+        const records = studentAttendanceMap[sid] || [];
+        // For this student, count periods
+        let studentPresentPeriods = 0;
+        let studentMarkedPeriods = 0;
+        records.forEach(r => {
+          if (["present", "late", "half-day"].includes(r.status)) {
+            studentPresentPeriods++;
+          }
+          if (["present", "late", "half-day", "absent"].includes(r.status)) {
+            studentMarkedPeriods++;
+          }
+        });
+        totalPresentPeriods += studentPresentPeriods;
+        totalMarkedPeriods += studentMarkedPeriods;
+
+        if (studentPresentPeriods > 0) {
+          presentToday++;
+        }
+      });
+
+      absentToday = totalStudents - presentToday;
+
+      // Attendance rate: present periods / total marked periods
+      const attendanceRate = totalMarkedPeriods > 0
+        ? Math.round((totalPresentPeriods / totalMarkedPeriods) * 100)
+        : 0;
 
       setStats({
         totalStudents,
@@ -362,10 +402,17 @@ const AdminDashboard = () => {
     <div className="dashboard-container">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="sidebar-logo">
-            <FaGraduationCap />
+          <div className="college-logo-section">
+            <div className="college-logo">
+              <FaGraduationCap />
+            </div>
+            <div className="college-info">
+              <h2 className="college-name">KONGU ENGINEERING COLLEGE</h2>
+              <p className="college-subtitle">(Autonomous)</p>
+              <p className="college-details">Affiliated to Anna University | Accredited by NAAC with A++ Grade</p>
+              <p className="college-address">Perundurai Erode - 638060 Tamilnadu India</p>
+            </div>
           </div>
-          <h2 className="sidebar-title">Attendance Tracker</h2>
         </div>
 
         <nav>

@@ -97,8 +97,16 @@ const Login = ({ onSwitchToRegister }) => {
       <div className="auth-form-container">
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-header">
-            <div className="auth-logo">
-              <FaGraduationCap />
+            <div className="college-logo-section">
+              <div className="college-logo">
+                <FaGraduationCap />
+              </div>
+              <div className="college-info">
+                <h2 className="college-name">KONGU ENGINEERING COLLEGE</h2>
+                <p className="college-subtitle">(Autonomous)</p>
+                <p className="college-details">Affiliated to Anna University | Accredited by NAAC with A++ Grade</p>
+                <p className="college-address">Perundurai Erode - 638060 Tamilnadu India</p>
+              </div>
             </div>
             <h1 className="auth-title">Welcome Back</h1>
             <p className="auth-subtitle">Sign in to your account to continue</p>

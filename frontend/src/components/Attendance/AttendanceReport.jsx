@@ -29,6 +29,22 @@ const AttendanceReport = () => {
   }, []);
 
   useEffect(() => {
+    if (selectedClass && selectedSection) {
+      fetchStudents();
+    }
+  }, [selectedClass, selectedSection]);
+
+  useEffect(() => {
+    // Clear selectedStudent only if it's not in the current students list
+    if (selectedStudent && students.length > 0) {
+      const studentExists = students.some(student => student._id === selectedStudent);
+      if (!studentExists) {
+        setSelectedStudent('');
+      }
+    }
+  }, [students, selectedStudent]);
+
+  useEffect(() => {
     if (reportType === 'range' && selectedClass && selectedSection && startDate && endDate) {
       fetchRangeReport();
     } else if (reportType === 'student' && selectedStudent && startDate && endDate) {
@@ -93,6 +109,7 @@ const AttendanceReport = () => {
       if (response.ok) {
         const data = await response.json();
         setStudents(data.students);
+        // Don't clear selectedStudent here as it breaks the filtering
       }
     } catch (error) {
       // ignore
@@ -110,6 +127,7 @@ const AttendanceReport = () => {
       });
       if (selectedSession) params.append('session', selectedSession);
       if (selectedStudent) params.append('studentId', selectedStudent);
+
       const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_CLASS}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -118,7 +136,12 @@ const AttendanceReport = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setReports(data.attendance);
+        let filtered = data.attendance;
+        // Filter to only the selected student if selectedStudent is set
+        if (selectedStudent) {
+          filtered = filtered.filter(r => r.studentId === selectedStudent);
+        }
+        setReports(filtered);
       } else {
         toast.error('Failed to fetch attendance report');
       }
@@ -166,7 +189,15 @@ const AttendanceReport = () => {
         startDate,
         endDate
       });
-      const response = await fetch(`/api/attendance/range-report?${params}`, {
+      
+      console.log('Fetching range report with params:', {
+        className: selectedClass,
+        section: selectedSection,
+        startDate,
+        endDate
+      });
+      
+      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_RANGE_REPORT}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -174,16 +205,19 @@ const AttendanceReport = () => {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('Range report response:', data);
         setRangeReport(data.report);
         setRangeDates(data.dates);
         setPeriods(data.periods); // Set periods from backend
       } else {
+        console.error('Failed to fetch range report:', response.status, response.statusText);
         toast.error('Failed to fetch range report');
         setRangeReport([]);
         setRangeDates([]);
         setPeriods([]); // Clear periods on error
       }
     } catch (error) {
+      console.error('Error fetching range report:', error);
       toast.error('Error fetching range report');
       setRangeReport([]);
       setRangeDates([]);
@@ -232,13 +266,23 @@ const AttendanceReport = () => {
       absent: 0,
       late: 0,
       'half-day': 0,
-      total: reports.length
+      'not-marked': 0,
+      totalPeriods: 0, // total periods (students x 7)
+      totalMarked: 0   // periods with a valid status (not 'not-marked')
     };
 
     reports.forEach(record => {
-      if (counts.hasOwnProperty(record.status)) {
-        counts[record.status]++;
-      }
+      const periods = [1,2,3,4,5,6,7];
+      periods.forEach(period => {
+        const status = record[`period${period}`];
+        counts.totalPeriods++;
+        if (status && counts.hasOwnProperty(status)) {
+          counts[status]++;
+        }
+        if (status && status !== 'not-marked' && ['present','absent','late','half-day'].includes(status)) {
+          counts.totalMarked++;
+        }
+      });
     });
 
     return counts;
@@ -337,6 +381,38 @@ const AttendanceReport = () => {
   };
 
   const statusCounts = getStatusCounts();
+
+  const getStudentDayStatus = (record) => {
+    const periods = [1,2,3,4,5,6,7];
+    const statuses = periods.map(period => record[`period${period}`]);
+    const marked = statuses.filter(s => s && s !== 'not-marked');
+    if (marked.length === 0) return 'not-marked';
+    if (marked.every(s => s === 'absent')) return 'absent';
+    if (marked.includes('present')) return 'present';
+    if (marked.includes('late')) return 'late';
+    if (marked.includes('half-day')) return 'half-day';
+    return 'not-marked';
+  };
+
+  const getStudentDayCounts = () => {
+    const counts = {
+      present: 0,
+      absent: 0,
+      late: 0,
+      'half-day': 0,
+      'not-marked': 0,
+      total: reports.length
+    };
+    reports.forEach(record => {
+      const status = getStudentDayStatus(record);
+      if (counts.hasOwnProperty(status)) {
+        counts[status]++;
+      }
+    });
+    return counts;
+  };
+
+  const studentDayCounts = getStudentDayCounts();
 
   return (
     <div className="attendance-report-container">
@@ -554,48 +630,53 @@ const AttendanceReport = () => {
                 <FaChartBar />
               </div>
               <div className="card-content">
-                <h3>{statusCounts.total}</h3>
+                <h3>{studentDayCounts.total}</h3>
                 <p>Total Students</p>
               </div>
             </div>
-
             <div className="summary-card present">
               <div className="card-icon">
                 <FaCalendar />
               </div>
               <div className="card-content">
-                <h3>{statusCounts.present}</h3>
-                <p>Present ({getStatusPercentage(statusCounts.present, statusCounts.total)}%)</p>
+                <h3>{studentDayCounts.present}</h3>
+                <p>Present ({getStatusPercentage(studentDayCounts.present, studentDayCounts.total)}%)</p>
               </div>
             </div>
-
             <div className="summary-card absent">
               <div className="card-icon">
                 <FaCalendar />
               </div>
               <div className="card-content">
-                <h3>{statusCounts.absent}</h3>
-                <p>Absent ({getStatusPercentage(statusCounts.absent, statusCounts.total)}%)</p>
+                <h3>{studentDayCounts.absent}</h3>
+                <p>Absent ({getStatusPercentage(studentDayCounts.absent, studentDayCounts.total)}%)</p>
               </div>
             </div>
-
             <div className="summary-card late">
               <div className="card-icon">
                 <FaCalendar />
               </div>
               <div className="card-content">
-                <h3>{statusCounts.late}</h3>
-                <p>Late ({getStatusPercentage(statusCounts.late, statusCounts.total)}%)</p>
+                <h3>{studentDayCounts.late}</h3>
+                <p>Late ({getStatusPercentage(studentDayCounts.late, studentDayCounts.total)}%)</p>
               </div>
             </div>
-
             <div className="summary-card half-day">
               <div className="card-icon">
                 <FaCalendar />
               </div>
               <div className="card-content">
-                <h3>{statusCounts['half-day']}</h3>
-                <p>Half-Day ({getStatusPercentage(statusCounts['half-day'], statusCounts.total)}%)</p>
+                <h3>{studentDayCounts['half-day']}</h3>
+                <p>Half-Day ({getStatusPercentage(studentDayCounts['half-day'], studentDayCounts.total)}%)</p>
+              </div>
+            </div>
+            <div className="summary-card not-marked">
+              <div className="card-icon">
+                <FaCalendar />
+              </div>
+              <div className="card-content">
+                <h3>{studentDayCounts['not-marked']}</h3>
+                <p>Not Marked ({getStatusPercentage(studentDayCounts['not-marked'], studentDayCounts.total)}%)</p>
               </div>
             </div>
           </div>
