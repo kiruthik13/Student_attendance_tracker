@@ -16,6 +16,92 @@ router.get('/test', (req, res) => {
   res.json({ message: 'Attendance routes are working!' });
 });
 
+// Test CSV generation endpoint
+router.get('/test-csv', (req, res) => {
+  const testHeaders = ['Name', 'Roll Number', 'Class', 'Section', 'Status'];
+  const testRows = [
+    ['John Doe', '123', '10th', 'A', 'Present'],
+    ['Jane Smith', '124', '10th', 'A', 'Absent'],
+    ['Bob Johnson', '125', '10th', 'A', 'Present']
+  ];
+  const csvContent = generateCSVContent(testHeaders, testRows);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="test.csv"');
+  res.send(csvContent);
+});
+
+// Health check endpoint for attendance routes
+router.get('/health', (req, res) => {
+  res.json({ 
+    message: 'Attendance routes are healthy!',
+    timestamp: new Date().toISOString(),
+    routes: [
+      'GET /api/attendance/test',
+      'GET /api/attendance/test-csv',
+      'GET /api/attendance/health',
+      'GET /api/attendance/debug-attendance',
+      'GET /api/attendance/dashboard-stats',
+      'POST /api/attendance/mark',
+      'POST /api/attendance/bulk-mark',
+      'GET /api/attendance/student/:studentId',
+      'GET /api/attendance/class',
+      'GET /api/attendance/range-report',
+      'GET /api/attendance/date-range-report',
+      'GET /api/attendance/export-excel',
+      'GET /api/attendance/export-date-range-excel',
+      'POST /api/attendance/send-csv-report'
+    ]
+  });
+});
+
+// Debug endpoint to check attendance data
+router.get('/debug-attendance', authenticateToken, requireActiveAdmin, async (req, res) => {
+  try {
+    const { className, section, startDate, endDate } = req.query;
+    
+    if (!className || !section || !startDate || !endDate) {
+      return res.status(400).json({ message: 'Class, section, start date, and end date are required' });
+    }
+
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    // Get students
+    const students = await Student.find({ className, section, isActive: true }).select('fullName rollNumber className section');
+    const studentIds = students.map(s => s._id);
+
+    // Get attendance records
+    const attendanceRecords = await Attendance.find({
+      student: { $in: studentIds },
+      date: { $gte: start, $lte: end }
+    }).populate('student', 'fullName rollNumber className section');
+
+    // Get sample data
+    const sampleRecords = attendanceRecords.slice(0, 3).map(record => ({
+      id: record._id,
+      student: record.student.fullName,
+      date: record.date,
+      forenoonPeriods: record.forenoon.periods.length,
+      afternoonPeriods: record.afternoon.periods.length,
+      forenoonSample: record.forenoon.periods.slice(0, 2),
+      afternoonSample: record.afternoon.periods.slice(0, 2)
+    }));
+
+    res.json({
+      totalStudents: students.length,
+      totalAttendanceRecords: attendanceRecords.length,
+      dateRange: { start, end },
+      sampleRecords,
+      studentIds: studentIds.map(id => id.toString())
+    });
+  } catch (error) {
+    console.error('Debug attendance error:', error);
+    res.status(500).json({ message: 'Debug failed', error: error.message });
+  }
+});
+
 // GET /api/attendance/dashboard-stats - Get dashboard statistics for today
 router.get('/dashboard-stats', authenticateToken, requireActiveAdmin, async (req, res) => {
   try {
@@ -206,74 +292,118 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
     let successCount = 0;
     let errorCount = 0;
     
+    // Group attendance data by student
+    const studentAttendanceMap = {};
+    
     for (const entry of attendanceData) {
+      const studentId = entry.student;
+      if (!studentAttendanceMap[studentId]) {
+        studentAttendanceMap[studentId] = {
+          forenoon: [],
+          afternoon: []
+        };
+      }
+      
+      const period = Number(entry.period);
+      const periodData = {
+        period: period,
+        status: entry.status,
+        remarks: entry.remarks || ''
+      };
+      
+      // Determine session based on period
+      let recordSession = session;
+      if (session === 'all') {
+        recordSession = [1, 2, 3, 4].includes(period) ? 'forenoon' : 'afternoon';
+      }
+      
+      if (recordSession === 'forenoon' || period <= 4) {
+        studentAttendanceMap[studentId].forenoon.push(periodData);
+      } else {
+        studentAttendanceMap[studentId].afternoon.push(periodData);
+      }
+    }
+    
+    // Process each student's attendance
+    for (const [studentId, attendanceData] of Object.entries(studentAttendanceMap)) {
       try {
-        // Determine session based on period for 'all' session
-        let recordSession = session;
-        if (session === 'all') {
-          recordSession = [1, 2, 3, 4].includes(Number(entry.period)) ? 'forenoon' : 'afternoon';
-        }
+        console.log(`[BULK MARK] Processing student ${studentId} with ${attendanceData.forenoon.length} forenoon and ${attendanceData.afternoon.length} afternoon periods`);
         
-        console.log(`[BULK MARK] Processing record: Student=${entry.student}, Period=${entry.period}, Session=${recordSession}, Status=${entry.status}`);
-        
-        // Try to find existing record
+        // Try to find existing attendance record for this student and date
         const existingAttendance = await Attendance.findOne({
-          student: entry.student,
-          date: attendanceDate,
-          session: recordSession,
-          period: Number(entry.period)
+          student: studentId,
+          date: attendanceDate
         });
         
         if (existingAttendance) {
           // Update existing record
-          existingAttendance.status = entry.status;
-          existingAttendance.remarks = entry.remarks || '';
+          // Update forenoon periods
+          attendanceData.forenoon.forEach(periodData => {
+            const existingPeriod = existingAttendance.forenoon.periods.find(p => p.period === periodData.period);
+            if (existingPeriod) {
+              existingPeriod.status = periodData.status;
+              existingPeriod.remarks = periodData.remarks;
+            } else {
+              existingAttendance.forenoon.periods.push(periodData);
+            }
+          });
+          
+          // Update afternoon periods
+          attendanceData.afternoon.forEach(periodData => {
+            const existingPeriod = existingAttendance.afternoon.periods.find(p => p.period === periodData.period);
+            if (existingPeriod) {
+              existingPeriod.status = periodData.status;
+              existingPeriod.remarks = periodData.remarks;
+            } else {
+              existingAttendance.afternoon.periods.push(periodData);
+            }
+          });
+          
           existingAttendance.markedBy = req.admin._id;
           existingAttendance.updatedAt = new Date();
           await existingAttendance.save();
           
-          console.log(`[BULK MARK] Updated existing record for period ${entry.period}`);
+          console.log(`[BULK MARK] Updated existing record for student ${studentId}`);
           results.push({ 
             success: true, 
             action: 'updated',
-            period: entry.period, 
-            student: entry.student,
-            session: recordSession,
-            status: entry.status
+            student: studentId,
+            forenoonPeriods: attendanceData.forenoon.length,
+            afternoonPeriods: attendanceData.afternoon.length
           });
           successCount++;
         } else {
           // Create new record
           const attendance = new Attendance({
-            student: entry.student,
+            student: studentId,
             date: attendanceDate,
-            session: recordSession,
-            period: Number(entry.period),
-            status: entry.status,
-            remarks: entry.remarks || '',
+            forenoon: {
+              periods: attendanceData.forenoon
+            },
+            afternoon: {
+              periods: attendanceData.afternoon
+            },
             markedBy: req.admin._id
           });
           
           await attendance.save();
           
-          console.log(`[BULK MARK] Created new record for period ${entry.period}`);
+          console.log(`[BULK MARK] Created new record for student ${studentId}`);
           results.push({ 
             success: true, 
             action: 'created',
-            period: entry.period, 
-            student: entry.student,
-            session: recordSession,
-            status: entry.status
+            student: studentId,
+            forenoonPeriods: attendanceData.forenoon.length,
+            afternoonPeriods: attendanceData.afternoon.length
           });
           successCount++;
         }
         
       } catch (individualError) {
-        console.error(`[BULK MARK] Error processing period ${entry.period}:`, individualError);
+        console.error(`[BULK MARK] Error processing student ${studentId}:`, individualError);
         results.push({ 
           success: false, 
-          period: entry.period, 
-          student: entry.student, 
+          student: studentId, 
           error: individualError.message 
         });
         errorCount++;
@@ -286,15 +416,15 @@ router.post('/mark', authenticateToken, requireActiveAdmin, validateAttendanceMa
     // Verify what was actually saved in the database
     const savedRecords = await Attendance.find({
       date: attendanceDate,
-      student: { $in: attendanceData.map(entry => entry.student) }
-    }).select('student period session status');
+      student: { $in: Object.keys(studentAttendanceMap) }
+    }).select('student forenoon.periods afternoon.periods');
     
     console.log(`[BULK MARK] Verification: Found ${savedRecords.length} records in database`);
     console.table(savedRecords.map(r => ({
       student: r.student.toString(),
-      period: r.period,
-      session: r.session,
-      status: r.status
+      forenoonPeriods: r.forenoon.periods.length,
+      afternoonPeriods: r.afternoon.periods.length,
+      totalPeriods: r.forenoon.periods.length + r.afternoon.periods.length
     })));
     
     res.status(200).json({ 
@@ -900,23 +1030,26 @@ router.get('/range-report', authenticateToken, requireActiveAdmin, async (req, r
     if (!startDate || !endDate) {
       return res.status(400).json({ message: 'Start date and end date are required' });
     }
+    if (!className || !section) {
+      return res.status(400).json({ message: 'Class name and section are required' });
+    }
+
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
-    // Build student query
-    const studentQuery = { isActive: true };
-    if (className) studentQuery.className = className;
-    if (section) studentQuery.section = section;
-    const students = await Student.find(studentQuery).select('fullName rollNumber className section');
+    // Get students in class/section
+    const students = await Student.find({ className, section, isActive: true }).select('fullName rollNumber className section');
     const studentIds = students.map(s => s._id);
 
     // Get all attendance records for these students in the date range
     const attendanceRecords = await Attendance.find({
       student: { $in: studentIds },
       date: { $gte: start, $lte: end }
-    });
+    }).populate('student', 'fullName rollNumber className section');
+
+    console.log(`Found ${attendanceRecords.length} attendance records for ${students.length} students`);
 
     // Get all dates in the range
     const dateList = [];
@@ -926,34 +1059,129 @@ router.get('/range-report', authenticateToken, requireActiveAdmin, async (req, r
       current.setDate(current.getDate() + 1);
     }
 
-    const periods = [1,2,3,4,5,6,7];
+    const periods = [1, 2, 3, 4, 5, 6, 7];
+    
     // Group attendance by student and date, per period
     const report = students.map(student => {
       const studentReport = dateList.map(dateObj => {
         const dateStr = dateObj.toISOString().split('T')[0];
         const periodStatus = {};
-        periods.forEach(period => {
-          const rec = attendanceRecords.find(a => a.student.toString() === student._id.toString() && a.period === period && a.date.toISOString().split('T')[0] === dateStr);
-          periodStatus[`period${period}`] = rec ? rec.status : 'not-marked';
+        
+        // Find attendance record for this student and date
+        const attendanceRecord = attendanceRecords.find(a => {
+          const studentMatch = a.student._id.toString() === student._id.toString();
+          const dateMatch = a.date.toISOString().split('T')[0] === dateStr;
+          return studentMatch && dateMatch;
         });
+        
+        periods.forEach(period => {
+          if (attendanceRecord) {
+            // Check forenoon periods (1-4)
+            if (period <= 4) {
+              const forenoonPeriod = attendanceRecord.forenoon.periods.find(p => p.period === period);
+              periodStatus[`period${period}`] = forenoonPeriod ? forenoonPeriod.status : 'not-marked';
+            } else {
+              // Check afternoon periods (5-7)
+              const afternoonPeriod = attendanceRecord.afternoon.periods.find(p => p.period === period);
+              periodStatus[`period${period}`] = afternoonPeriod ? afternoonPeriod.status : 'not-marked';
+            }
+          } else {
+            periodStatus[`period${period}`] = 'not-marked';
+          }
+        });
+        
         return {
           date: dateStr,
           ...periodStatus
         };
       });
+      
+      // Calculate total attendance for this student
+      let totalPresent = 0;
+      let totalMarked = 0;
+      
+      studentReport.forEach(dateData => {
+        periods.forEach(period => {
+          const status = dateData[`period${period}`];
+          if (status && status !== 'not-marked') {
+            totalMarked++;
+            if (status === 'present') {
+              totalPresent++;
+            }
+          }
+        });
+      });
+      
+      const totalAttendancePercentage = totalMarked > 0 ? Math.round((totalPresent / totalMarked) * 100) : 0;
+      
       return {
         studentId: student._id,
         fullName: student.fullName,
         rollNumber: student.rollNumber,
         className: student.className,
         section: student.section,
-        attendance: studentReport
+        attendance: studentReport,
+        totalAttendance: {
+          present: totalPresent,
+          marked: totalMarked,
+          percentage: totalAttendancePercentage
+        }
       };
     });
-    res.json({ startDate, endDate, report, dates: dateList.map(d => d.toISOString().split('T')[0]), periods });
+    
+    // Calculate overall statistics
+    let totalPresentPeriods = 0;
+    let totalMarkedPeriods = 0;
+    let studentsWithGoodAttendance = 0;
+    let studentsWithAverageAttendance = 0;
+    let studentsWithPoorAttendance = 0;
+    let studentsWithNoAttendance = 0;
+    
+    report.forEach(student => {
+      if (student.totalAttendance.marked > 0) {
+        totalPresentPeriods += student.totalAttendance.present;
+        totalMarkedPeriods += student.totalAttendance.marked;
+        
+        const percentage = student.totalAttendance.percentage;
+        if (percentage >= 75) {
+          studentsWithGoodAttendance++;
+        } else if (percentage >= 50) {
+          studentsWithAverageAttendance++;
+        } else {
+          studentsWithPoorAttendance++;
+        }
+      } else {
+        studentsWithNoAttendance++;
+      }
+    });
+    
+    const overallStats = {
+      totalStudents: students.length,
+      totalPresentPeriods,
+      totalMarkedPeriods,
+      averageAttendance: totalMarkedPeriods > 0 ? Math.round((totalPresentPeriods / totalMarkedPeriods) * 100) : 0,
+      studentsWithGoodAttendance,
+      studentsWithAverageAttendance,
+      studentsWithPoorAttendance,
+      studentsWithNoAttendance
+    };
+    
+    console.log(`Generated report for ${report.length} students with ${dateList.length} dates`);
+    console.log('Overall stats:', overallStats);
+    
+    res.json({ 
+      startDate, 
+      endDate, 
+      report, 
+      dates: dateList.map(d => d.toISOString().split('T')[0]), 
+      periods,
+      totalStudents: students.length,
+      totalRecords: attendanceRecords.length,
+      overallStats
+    });
   } catch (error) {
     console.error('Get range attendance report error:', error);
-    res.status(500).json({ message: 'Failed to fetch range attendance report' });
+    res.status(500).json({ message: 'Failed to fetch range attendance report', error: error.message });
   }
 });
 
@@ -1041,20 +1269,35 @@ router.get('/date-range-report', authenticateToken, requireActiveAdmin, async (r
       return res.status(400).json({ message: 'Class name and section are required' });
     }
 
+    // Validate date format
     const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
+    
+    if (start > end) {
+      return res.status(400).json({ message: 'Start date cannot be after end date' });
+    }
+
+    start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
 
     // Get students in class/section
     const students = await Student.find({ className, section, isActive: true }).select('fullName rollNumber className section');
+    
+    if (students.length === 0) {
+      return res.status(404).json({ message: 'No students found for the specified class and section' });
+    }
+    
     const studentIds = students.map(s => s._id);
 
     // Get all attendance records for these students in the date range
     const attendanceRecords = await Attendance.find({
       student: { $in: studentIds },
       date: { $gte: start, $lte: end }
-    });
+    }).populate('student', 'fullName rollNumber className section');
 
     // Get all dates in the range
     const dateList = [];
@@ -1072,7 +1315,7 @@ router.get('/date-range-report', authenticateToken, requireActiveAdmin, async (r
       dateList.forEach(dateObj => {
         const dateStr = dateObj.toISOString().split('T')[0];
         const attendanceRecord = attendanceRecords.find(a => 
-          a.student.toString() === student._id.toString() && 
+          a.student._id.toString() === student._id.toString() && 
           a.date.toISOString().split('T')[0] === dateStr
         );
         
@@ -1108,12 +1351,14 @@ router.get('/date-range-report', authenticateToken, requireActiveAdmin, async (r
       endDate, 
       report, 
       dates: dateList.map(d => d.toISOString().split('T')[0]),
-      totalStudents: students.length
+      totalStudents: students.length,
+      totalDates: dateList.length,
+      totalRecords: attendanceRecords.length
     });
 
   } catch (error) {
     console.error('Get date range attendance report error:', error);
-    res.status(500).json({ message: 'Failed to fetch date range attendance report' });
+    res.status(500).json({ message: 'Failed to fetch date range attendance report', error: error.message });
   }
 });
 
@@ -1410,17 +1655,69 @@ router.post('/send-csv-report', authenticateToken, requireActiveAdmin, async (re
 
     if (reportType === 'daily') {
       const { headers, rows, date, className, section } = reportData;
+      console.log('Processing daily report data:', {
+        headers: headers,
+        rows: rows,
+        date: date,
+        className: className,
+        section: section
+      });
+      
+      // Check if we have valid data
+      if (!headers || !rows || headers.length === 0 || rows.length === 0) {
+        console.error('No valid data provided for CSV generation');
+        return res.status(400).json({
+          message: 'No valid attendance data found. Please generate a report first.'
+        });
+      }
+      
       csvContent = generateCSVContent(headers, rows);
+      console.log('Generated CSV content for daily report:', {
+        headers: headers?.length || 0,
+        rows: rows?.length || 0,
+        csvContentLength: csvContent?.length || 0,
+        csvContentPreview: csvContent?.substring(0, 200) + '...'
+      });
       subject = `📊 Daily Attendance Report - ${className} Section ${section} - ${date}`;
       emailTemplate = 'csvReportEmail';
     } else if (reportType === 'range') {
       const { headers, rows, startDate, endDate, className, section } = reportData;
+      
+      // Check if we have valid data
+      if (!headers || !rows || headers.length === 0 || rows.length === 0) {
+        console.error('No valid data provided for CSV generation');
+        return res.status(400).json({
+          message: 'No valid attendance data found. Please generate a report first.'
+        });
+      }
+      
       csvContent = generateCSVContent(headers, rows);
+      console.log('Generated CSV content for range report:', {
+        headers: headers?.length || 0,
+        rows: rows?.length || 0,
+        csvContentLength: csvContent?.length || 0,
+        csvContentPreview: csvContent?.substring(0, 200) + '...'
+      });
       subject = `📊 Date Range Attendance Report - ${className} Section ${section} - ${startDate} to ${endDate}`;
       emailTemplate = 'csvReportEmail';
     } else if (reportType === 'student') {
       const { headers, rows, studentName, startDate, endDate } = reportData;
+      
+      // Check if we have valid data
+      if (!headers || !rows || headers.length === 0 || rows.length === 0) {
+        console.error('No valid data provided for CSV generation');
+        return res.status(400).json({
+          message: 'No valid attendance data found. Please generate a report first.'
+        });
+      }
+      
       csvContent = generateCSVContent(headers, rows);
+      console.log('Generated CSV content for student report:', {
+        headers: headers?.length || 0,
+        rows: rows?.length || 0,
+        csvContentLength: csvContent?.length || 0,
+        csvContentPreview: csvContent?.substring(0, 200) + '...'
+      });
       subject = `📊 Student Attendance Report - ${studentName} - ${startDate} to ${endDate}`;
       emailTemplate = 'csvReportEmail';
     } else {
@@ -1436,6 +1733,7 @@ router.post('/send-csv-report', authenticateToken, requireActiveAdmin, async (re
       reportType,
       reportData: {
         rows: reportData.rows ? reportData.rows.length : 0,
+        headers: reportData.headers ? reportData.headers.length : 0,
         className: reportData.className,
         section: reportData.section,
         date: reportData.date,
@@ -1445,13 +1743,28 @@ router.post('/send-csv-report', authenticateToken, requireActiveAdmin, async (re
       }
     });
     
-    const emailResult = await sendEmail(email, emailTemplate, 
+    // Debug the actual data structure
+    console.log('Full reportData structure:', JSON.stringify(reportData, null, 2));
+    
+    // Test CSV generation with sample data if no data provided
+    if (!reportData.headers || !reportData.rows || reportData.headers.length === 0 || reportData.rows.length === 0) {
+      console.log('No valid data provided, testing with sample data...');
+      const testHeaders = ['Name', 'Roll Number', 'Class', 'Section', 'Status'];
+      const testRows = [
+        ['John Doe', '123', '10th', 'A', 'Present'],
+        ['Jane Smith', '124', '10th', 'A', 'Absent']
+      ];
+      const testCsv = generateCSVContent(testHeaders, testRows);
+      console.log('Test CSV generated:', testCsv);
+    }
+    
+    const emailResult = await sendEmail(email, emailTemplate, [
       subject,
       csvContent,
       fileName || 'attendance_report.csv',
       reportType,
       reportData
-    );
+    ]);
 
     if (emailResult.success) {
       res.json({
@@ -1476,28 +1789,42 @@ router.post('/send-csv-report', authenticateToken, requireActiveAdmin, async (re
 
 // Helper function to generate CSV content
 function generateCSVContent(headers, rows) {
+  console.log('generateCSVContent called with:', {
+    headers: headers?.length || 0,
+    rows: rows?.length || 0,
+    headersSample: headers?.slice(0, 3),
+    rowsSample: rows?.slice(0, 2)
+  });
+  
   let csvContent = '';
   
   // Add metadata header
   csvContent += '"KONGU ENGINEERING COLLEGE - ATTENDANCE REPORT"\n';
   csvContent += `"Generated on: ${new Date().toLocaleString('en-IN')}"\n`;
-  csvContent += `"Total Records: ${rows.length}"\n`;
+  csvContent += `"Total Records: ${rows?.length || 0}"\n`;
   csvContent += '""\n'; // Empty line for spacing
   
   // Add headers
-  csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
+  if (headers && headers.length > 0) {
+    csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
+  }
   
   // Add data rows
-  rows.forEach(row => {
-    csvContent += row.map(field => `"${(field ?? '').toString().replace(/"/g, '""')}"`).join(',') + '\n';
-  });
+  if (rows && rows.length > 0) {
+    rows.forEach(row => {
+      csvContent += row.map(field => `"${(field ?? '').toString().replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+  }
   
   // Add summary footer
   csvContent += '""\n'; // Empty line for spacing
   csvContent += '"Report Summary:"\n';
-  csvContent += `"Total Students: ${rows.length}"\n`;
+  csvContent += `"Total Students: ${rows?.length || 0}"\n`;
   csvContent += `"Report Generated: ${new Date().toLocaleString('en-IN')}"\n`;
   csvContent += '"© 2024 Kongu Engineering College. All rights reserved."\n';
+  
+  console.log('Generated CSV content length:', csvContent.length);
+  console.log('CSV content preview:', csvContent.substring(0, 300) + '...');
   
   return csvContent;
 }

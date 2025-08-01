@@ -4,7 +4,7 @@ import { FaSave, FaTimes } from 'react-icons/fa';
 import { API_ENDPOINTS } from '../../config/api';
 import './Students.css';
 
-const StudentForm = ({ student, onSave, onCancel }) => {
+const StudentForm = ({ student, onSave = () => {}, onCancel = () => {} }) => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -137,7 +137,9 @@ const StudentForm = ({ student, onSave, onCancel }) => {
       if (response.ok) {
         const data = await response.json();
         toast.success(data.message);
-        onSave(data.student);
+        if (onSave && typeof onSave === 'function') {
+          onSave(data.student);
+        }
         return;
       } else {
         const data = await response.json();
@@ -162,7 +164,7 @@ const StudentForm = ({ student, onSave, onCancel }) => {
       <div className="student-form-modal">
         <div className="form-header">
           <h3>{student ? 'Edit Student' : 'Add New Student'}</h3>
-          <button className="close-btn" onClick={onCancel}>
+          <button className="close-btn" onClick={() => onCancel && onCancel()}>
             <FaTimes />
           </button>
         </div>
@@ -230,7 +232,7 @@ const StudentForm = ({ student, onSave, onCancel }) => {
             </div>
           </div>
           <div className="form-actions">
-            <button type="button" className="cancel-btn" onClick={onCancel} disabled={isLoading}>Cancel</button>
+            <button type="button" className="cancel-btn" onClick={() => onCancel && onCancel()} disabled={isLoading}>Cancel</button>
             <button type="submit" className="save-btn" disabled={isLoading}>{isLoading ? 'Saving...' : <><FaSave /> Save Student</>}</button>
           </div>
         </form>

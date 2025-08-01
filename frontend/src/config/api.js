@@ -20,11 +20,15 @@ export const API_ENDPOINTS = {
   ATTENDANCE_TODAY: `${API_BASE_URL}/api/attendance/today`,
   ATTENDANCE_CLASS: `${API_BASE_URL}/api/attendance/class`,
   ATTENDANCE_RANGE_REPORT: `${API_BASE_URL}/api/attendance/range-report`,
+  ATTENDANCE_DATE_RANGE_REPORT: `${API_BASE_URL}/api/attendance/date-range-report`,
+  ATTENDANCE_EXPORT_DATE_RANGE_EXCEL: `${API_BASE_URL}/api/attendance/export-date-range-excel`,
   ATTENDANCE_DASHBOARD_STATS: `${API_BASE_URL}/api/attendance/dashboard-stats`,
   ATTENDANCE_SEND_CSV_REPORT: `${API_BASE_URL}/api/attendance/send-csv-report`,
+  ATTENDANCE_DEBUG: `${API_BASE_URL}/api/attendance/debug-attendance`,
   
   // Health check
-  HEALTH: `${API_BASE_URL}/api/health`
+  HEALTH: `${API_BASE_URL}/api/health`,
+  ATTENDANCE_HEALTH: `${API_BASE_URL}/api/attendance/health`
 };
 
 export default API_BASE_URL; 

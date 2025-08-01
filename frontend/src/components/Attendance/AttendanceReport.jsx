@@ -18,6 +18,47 @@ const AttendanceReport = () => {
   const [selectedStudent, setSelectedStudent] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [dateRangeError, setDateRangeError] = useState('');
+  
+  // Helper function to validate and fix date range
+  const validateDateRange = (start, end) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return { valid: false, message: 'Invalid date format' };
+    }
+    
+    if (startDate > endDate) {
+      return { valid: false, message: 'Start date cannot be after end date' };
+    }
+    
+    return { valid: true };
+  };
+  
+  // Function to swap dates if they're in wrong order
+  const fixDateRange = () => {
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (start > end) {
+        setStartDate(endDate);
+        setEndDate(startDate);
+        toast.success('Date range fixed! Start and end dates have been swapped.');
+      }
+    }
+  };
+  
+  // Check date range validity whenever dates change
+  useEffect(() => {
+    if (startDate && endDate) {
+      const validation = validateDateRange(startDate, endDate);
+      setDateRangeError(validation.valid ? '' : validation.message);
+    } else {
+      setDateRangeError('');
+    }
+  }, [startDate, endDate]);
   const [rangeReport, setRangeReport] = useState([]);
   const [rangeDates, setRangeDates] = useState([]);
   const [periods, setPeriods] = useState([]); // Added periods state
@@ -121,6 +162,13 @@ const AttendanceReport = () => {
   const fetchAttendanceReport = async () => {
     try {
       setLoading(true);
+      
+      // Validate required fields
+      if (!selectedClass || !selectedSection || !selectedDate) {
+        toast.error('Please select class, section, and date');
+        return;
+      }
+      
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         className: selectedClass,
@@ -130,25 +178,49 @@ const AttendanceReport = () => {
       if (selectedSession) params.append('session', selectedSession);
       if (selectedStudent) params.append('studentId', selectedStudent);
 
+      console.log('Fetching attendance report with params:', {
+        className: selectedClass,
+        section: selectedSection,
+        date: selectedDate,
+        session: selectedSession,
+        studentId: selectedStudent
+      });
+
       const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_CLASS}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Attendance report response:', data);
+        
         let filtered = data.attendance;
         // Filter to only the selected student if selectedStudent is set
         if (selectedStudent) {
           filtered = filtered.filter(r => r.studentId === selectedStudent);
         }
+        
         setReports(filtered);
+        setPeriods(data.periods || [1, 2, 3, 4, 5, 6, 7]);
+        
+        if (filtered.length > 0) {
+          toast.success(`Generated report for ${filtered.length} students`);
+        } else {
+          toast.info('No attendance data found for the selected criteria');
+        }
       } else {
-        toast.error('Failed to fetch attendance report');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch attendance report:', response.status, response.statusText, errorData);
+        toast.error(errorData.message || 'Failed to fetch attendance report');
+        setReports([]);
       }
     } catch (error) {
+      console.error('Error fetching attendance report:', error);
       toast.error('Error fetching attendance report');
+      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -157,25 +229,52 @@ const AttendanceReport = () => {
   const fetchStudentAttendance = async () => {
     try {
       setLoading(true);
+      
+      // Validate required fields
+      if (!selectedStudent || !startDate || !endDate) {
+        toast.error('Please select student, start date, and end date');
+        return;
+      }
+      
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         startDate,
         endDate
       });
+      
+      console.log('Fetching student attendance with params:', {
+        studentId: selectedStudent,
+        startDate,
+        endDate
+      });
+      
       const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_MARK.replace('/mark','/student')}/${selectedStudent}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
+      
       if (response.ok) {
         const data = await response.json();
-        setReports(data.attendance);
+        console.log('Student attendance response:', data);
+        setReports(data.attendance || []);
+        
+        if (data.attendance && data.attendance.length > 0) {
+          toast.success(`Generated report for ${data.attendance.length} records`);
+        } else {
+          toast.info('No attendance data found for the selected student and date range');
+        }
       } else {
-        toast.error('Failed to fetch student attendance');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch student attendance:', response.status, response.statusText, errorData);
+        toast.error(errorData.message || 'Failed to fetch student attendance');
+        setReports([]);
       }
     } catch (error) {
+      console.error('Error fetching student attendance:', error);
       toast.error('Error fetching student attendance');
+      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -185,6 +284,27 @@ const AttendanceReport = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      
+      // Validate required fields
+      if (!selectedClass || !selectedSection || !startDate || !endDate) {
+        toast.error('Please select class, section, start date, and end date');
+        return;
+      }
+      
+      // Validate date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        toast.error('Invalid date format');
+        return;
+      }
+      
+      if (start > end) {
+        toast.error('Start date cannot be after end date. Please select a valid date range.');
+        return;
+      }
+      
       const params = new URLSearchParams({
         className: selectedClass,
         section: selectedSection,
@@ -199,67 +319,343 @@ const AttendanceReport = () => {
         endDate
       });
       
-      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_RANGE_REPORT}?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      // Add timeout and retry logic
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      try {
+        const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_RANGE_REPORT}?${params}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Range report response:', data);
+          
+          if (data.report && data.report.length > 0) {
+            // Debug: Check if totalAttendance data is present
+            const studentsWithTotalAttendance = data.report.filter(r => r.totalAttendance && r.totalAttendance.marked > 0);
+            console.log('Students with total attendance data:', studentsWithTotalAttendance.length);
+            console.log('Sample student data:', data.report[0]);
+            console.log('Overall stats from backend:', data.overallStats);
+            
+            // Store backend data for comparison
+            window.lastRangeReportData = data;
+            
+            setRangeReport(data.report);
+            setRangeDates(data.dates || []);
+            setPeriods(data.periods || [1, 2, 3, 4, 5, 6, 7]);
+            toast.success(`Generated report for ${data.totalStudents || data.report.length} students`);
+          } else {
+            setRangeReport([]);
+            setRangeDates([]);
+            setPeriods([]);
+            toast.info('No attendance data found for the selected date range');
+          }
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Failed to fetch range report:', response.status, response.statusText, errorData);
+          
+          if (response.status === 401) {
+            toast.error('Authentication failed. Please log in again.');
+          } else if (response.status === 500) {
+            toast.error('Server error. Please try again later.');
+          } else {
+            toast.error(errorData.message || 'Failed to fetch range report');
+          }
+          
+          setRangeReport([]);
+          setRangeDates([]);
+          setPeriods([]);
         }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Range report response:', data);
-        setRangeReport(data.report);
-        setRangeDates(data.dates);
-        setPeriods(data.periods); // Set periods from backend
-      } else {
-        console.error('Failed to fetch range report:', response.status, response.statusText);
-        toast.error('Failed to fetch range report');
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          toast.error('Request timeout. Please try again.');
+        } else if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
+          toast.error('Connection failed. Please check your internet connection and try again.');
+        } else {
+          toast.error('Network error. Please try again.');
+        }
+        
+        console.error('Fetch error:', fetchError);
         setRangeReport([]);
         setRangeDates([]);
-        setPeriods([]); // Clear periods on error
+        setPeriods([]);
       }
     } catch (error) {
       console.error('Error fetching range report:', error);
       toast.error('Error fetching range report');
       setRangeReport([]);
       setRangeDates([]);
-      setPeriods([]); // Clear periods on error
+      setPeriods([]);
     } finally {
       setLoading(false);
     }
   };
 
   const exportRangeCSV = () => {
-    if (!rangeReport.length || !rangeDates.length || !periods) return;
+    if (!rangeReport.length || !rangeDates.length || !periods) {
+      toast.error('No data available for export');
+      return;
+    }
+    
     const headers = ['Student Name', 'Roll Number', 'Class', 'Section'];
     rangeDates.forEach(date => {
       periods.forEach(period => {
         headers.push(`${date} P${period}`);
       });
     });
+    // Add total attendance columns
+    headers.push('Total Present Periods', 'Total Marked Periods', 'Total Attendance %');
+    
     const rows = rangeReport.map(r => {
       const row = [r.fullName, r.rollNumber, r.className, r.section];
-      r.attendance.forEach(a => {
-        periods.forEach(period => {
-          row.push(a[`period${period}`]);
-        });
-      });
+      if (r.attendance) {
+        if (Array.isArray(r.attendance)) {
+          // Range report structure: array of date objects
+          r.attendance.forEach(a => {
+            periods.forEach(period => {
+              row.push(a[`period${period}`] || 'not-marked');
+            });
+          });
+        } else if (typeof r.attendance === 'object' && r.attendance !== null) {
+          // Date range report structure: object with date keys
+          rangeDates && rangeDates.forEach(date => {
+            periods.forEach(period => {
+              row.push(r.attendance[date] || 'not-marked');
+            });
+          });
+        }
+      }
+      // Add total attendance data
+      if (r.totalAttendance) {
+        row.push(r.totalAttendance.present, r.totalAttendance.marked, `${r.totalAttendance.percentage}%`);
+      } else {
+        row.push('', '', '');
+      }
       return row;
     });
+    
     let csvContent = '';
     csvContent += headers.join(',') + '\n';
     rows.forEach(row => {
       csvContent += row.map(field => `"${(field ?? '').toString().replace(/"/g, '""')}"`).join(',') + '\n';
     });
+    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `attendance_range_report_${startDate}_to_${endDate}.csv`);
+    link.setAttribute('download', `attendance_range_report_${selectedClass}_${selectedSection}_${startDate}_to_${endDate}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    toast.success('CSV file downloaded successfully');
+  };
+
+  const exportRangeExcel = async () => {
+    if (!rangeReport.length || !rangeDates.length || !periods) {
+      toast.error('No data available for export');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        className: selectedClass,
+        section: selectedSection,
+        startDate,
+        endDate
+      });
+      
+      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_EXPORT_DATE_RANGE_EXCEL}?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `attendance_range_report_${selectedClass}_${selectedSection}_${startDate}_to_${endDate}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success('Excel file downloaded successfully');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to export Excel file');
+      }
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      toast.error('Error exporting Excel file');
+    }
+  };
+
+  const fetchDateRangeReport = async () => {
+    try {
+      setLoading(true);
+      
+      // Validate required fields
+      if (!selectedClass || !selectedSection || !startDate || !endDate) {
+        toast.error('Please select class, section, start date, and end date');
+        return;
+      }
+      
+      // Validate date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        toast.error('Invalid date format');
+        return;
+      }
+      
+      if (start > end) {
+        toast.error('Start date cannot be after end date. Please select a valid date range.');
+        return;
+      }
+      
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        className: selectedClass,
+        section: selectedSection,
+        startDate,
+        endDate
+      });
+      
+      console.log('Fetching date range report with params:', {
+        className: selectedClass,
+        section: selectedSection,
+        startDate,
+        endDate
+      });
+      
+      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_DATE_RANGE_REPORT}?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Date range report response:', data);
+        
+        if (data.report && data.report.length > 0) {
+          setRangeReport(data.report);
+          setRangeDates(data.dates || []);
+          toast.success(`Generated date range report for ${data.totalStudents || data.report.length} students`);
+        } else {
+          setRangeReport([]);
+          setRangeDates([]);
+          toast.info('No attendance data found for the selected date range');
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch date range report:', response.status, response.statusText, errorData);
+        toast.error(errorData.message || 'Failed to fetch date range report');
+        setRangeReport([]);
+        setRangeDates([]);
+      }
+    } catch (error) {
+      console.error('Error fetching date range report:', error);
+      toast.error('Error fetching date range report');
+      setRangeReport([]);
+      setRangeDates([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const debugAttendanceData = async () => {
+    try {
+      if (!selectedClass || !selectedSection || !startDate || !endDate) {
+        toast.error('Please select class, section, start date, and end date');
+        return;
+      }
+      
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        className: selectedClass,
+        section: selectedSection,
+        startDate,
+        endDate
+      });
+      
+      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_DEBUG}?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Debug data:', data);
+        alert(`Debug Info:\nTotal Students: ${data.totalStudents}\nTotal Attendance Records: ${data.totalAttendanceRecords}\nDate Range: ${data.dateRange.start} to ${data.dateRange.end}\n\nCheck console for detailed sample records.`);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Debug failed:', errorData);
+        toast.error('Debug failed');
+      }
+    } catch (error) {
+      console.error('Error in debug:', error);
+      toast.error('Debug error');
+    }
+  };
+
+  const testConnection = async () => {
+    try {
+      toast.info('Testing connection to backend...');
+      
+      // Test basic health endpoint
+      const healthResponse = await fetch(`${API_ENDPOINTS.HEALTH}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (healthResponse.ok) {
+        const healthData = await healthResponse.json();
+        console.log('Health check response:', healthData);
+        
+        // Test attendance health endpoint
+        const token = localStorage.getItem('token');
+        const attendanceHealthResponse = await fetch(`${API_ENDPOINTS.ATTENDANCE_HEALTH}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (attendanceHealthResponse.ok) {
+          const attendanceHealthData = await attendanceHealthResponse.json();
+          console.log('Attendance health response:', attendanceHealthData);
+          toast.success('Connection test successful! Backend is responding.');
+        } else {
+          toast.warning('Basic connection works, but attendance routes may have issues.');
+        }
+      } else {
+        toast.error('Backend connection failed. Please check if the server is running.');
+      }
+    } catch (error) {
+      console.error('Connection test error:', error);
+      toast.error('Connection test failed. Please check your internet connection and server status.');
+    }
   };
 
   const getStatusCounts = () => {
@@ -509,12 +905,31 @@ const AttendanceReport = () => {
             />
           </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
-            <button className="export-btn" onClick={exportToCSV} disabled={!reports.length}>Export CSV</button>
+            <button 
+              className="export-btn" 
+              onClick={fetchAttendanceReport} 
+              disabled={loading || !selectedClass || !selectedSection || !selectedDate}
+              style={{ backgroundColor: '#007bff' }}
+            >
+              {loading ? 'Loading...' : 'Fetch Report'}
+            </button>
+            <button className="export-btn" onClick={exportToCSV} disabled={!reports.length} style={{ marginLeft: 8, backgroundColor: '#17a2b8' }}>
+              Export CSV
+            </button>
             <button 
               className="export-btn" 
               style={{ marginLeft: 8, backgroundColor: '#28a745' }}
               onClick={() => {
+                if (!reports || reports.length === 0) {
+                  toast.error('No attendance data available to send. Please generate a report first.');
+                  return;
+                }
+                
+                console.log('Reports data before processing:', reports);
+                
+                // Use the same logic as exportToCSV function
                 const periodsToUse = periods && periods.length ? periods : [1,2,3,4,5,6,7];
+                const periodDuration = 1; // 1 hour per period
                 const headers = [
                   'Student Name',
                   'Roll Number',
@@ -525,10 +940,13 @@ const AttendanceReport = () => {
                   'Attended Hours',
                   'Attendance %'
                 ];
+                
                 const rows = reports.map(r => {
+                  console.log('Processing report record:', r);
                   const periodStatuses = periodsToUse.map(period => r[`period${period}`] || '-');
-                  const scheduled = periodsToUse.length;
-                  const attended = periodStatuses.filter(status => ['present', 'late', 'half-day'].includes((status || '').toLowerCase())).length;
+                  const scheduled = periodsToUse.length * periodDuration;
+                  // Count attended periods: present, late, half-day all count as attended
+                  const attended = periodStatuses.filter(status => ['present', 'late', 'half-day'].includes((status || '').toLowerCase())).length * periodDuration;
                   const percentage = scheduled > 0 ? ((attended / scheduled) * 100).toFixed(2) : '0.00';
                   return [
                     r.fullName || r.student?.fullName || '-',
@@ -541,7 +959,11 @@ const AttendanceReport = () => {
                     percentage
                   ];
                 });
-                sendReportViaEmail('daily', { 
+                
+                console.log('Generated rows:', rows);
+                console.log('Generated headers:', headers);
+                
+                const emailData = { 
                   headers, 
                   rows, 
                   date: selectedDate, 
@@ -549,7 +971,9 @@ const AttendanceReport = () => {
                   section: selectedSection,
                   totalStudents: reports.length,
                   generatedAt: new Date().toLocaleString('en-IN')
-                });
+                };
+                console.log('Sending email with data:', emailData);
+                sendReportViaEmail('daily', emailData);
               }}
               disabled={!reports.length || !emailAddress || sendingEmail}
             >
@@ -576,12 +1000,62 @@ const AttendanceReport = () => {
           </div>
           <div className="filter-group">
             <label>Start Date</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={e => setStartDate(e.target.value)}
+              style={{ 
+                borderColor: dateRangeError ? '#dc3545' : '#ddd',
+                borderWidth: dateRangeError ? '2px' : '1px'
+              }}
+            />
           </div>
           <div className="filter-group">
             <label>End Date</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={e => setEndDate(e.target.value)}
+              style={{ 
+                borderColor: dateRangeError ? '#dc3545' : '#ddd',
+                borderWidth: dateRangeError ? '2px' : '1px'
+              }}
+            />
           </div>
+          {dateRangeError && (
+            <div className="filter-group" style={{ gridColumn: '1 / -1', marginTop: '-10px' }}>
+              <div style={{ 
+                color: '#dc3545', 
+                fontSize: '12px', 
+                fontWeight: 'bold',
+                backgroundColor: '#f8d7da',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                border: '1px solid #f5c6cb',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span>⚠️ {dateRangeError}</span>
+                {dateRangeError.includes('Start date cannot be after end date') && (
+                  <button 
+                    onClick={fixDateRange}
+                    style={{
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      padding: '2px 8px',
+                      borderRadius: '3px',
+                      fontSize: '10px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Fix Dates
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="filter-group">
             <label>Email Address</label>
             <input 
@@ -593,43 +1067,37 @@ const AttendanceReport = () => {
             />
           </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
-            <button className="export-btn" onClick={exportRangeCSV} disabled={!rangeReport.length}>Export CSV</button>
             <button 
               className="export-btn" 
-              style={{ marginLeft: 8, backgroundColor: '#28a745' }}
-              onClick={() => {
-                if (!rangeReport.length || !rangeDates.length || !periods) return;
-                const headers = ['Student Name', 'Roll Number', 'Class', 'Section'];
-                rangeDates.forEach(date => {
-                  periods.forEach(period => {
-                    headers.push(`${date} P${period}`);
-                  });
-                });
-                const rows = rangeReport.map(r => {
-                  const row = [r.fullName, r.rollNumber, r.className, r.section];
-                  r.attendance.forEach(a => {
-                    periods.forEach(period => {
-                      row.push(a[`period${period}`]);
-                    });
-                  });
-                  return row;
-                });
-                sendReportViaEmail('range', { 
-                  headers, 
-                  rows, 
-                  startDate, 
-                  endDate, 
-                  className: selectedClass, 
-                  section: selectedSection,
-                  totalStudents: rangeReport.length,
-                  generatedAt: new Date().toLocaleString('en-IN')
-                });
-              }}
-              disabled={!rangeReport.length || !emailAddress || sendingEmail}
+              onClick={fetchRangeReport} 
+              disabled={loading || !selectedClass || !selectedSection || !startDate || !endDate || !!dateRangeError}
+              style={{ backgroundColor: '#007bff' }}
             >
-              {sendingEmail ? 'Sending...' : 'Send Email'}
+              {loading ? 'Loading...' : 'Fetch Period Report'}
             </button>
-            <button className="export-btn" style={{ marginLeft: 8 }} onClick={fetchRangeReport} disabled={loading || !selectedClass || !selectedSection || !startDate || !endDate}>Fetch Report</button>
+            <button 
+              className="export-btn" 
+              onClick={fetchDateRangeReport} 
+              disabled={loading || !selectedClass || !selectedSection || !startDate || !endDate || !!dateRangeError}
+              style={{ marginLeft: 8, backgroundColor: '#6f42c1' }}
+            >
+              {loading ? 'Loading...' : 'Fetch Summary Report'}
+            </button>
+            <button 
+              className="export-btn" 
+              onClick={debugAttendanceData} 
+              disabled={!selectedClass || !selectedSection || !startDate || !endDate || !!dateRangeError}
+              style={{ marginLeft: 8, backgroundColor: '#dc3545' }}
+            >
+              Debug Data
+            </button>
+            <button 
+              className="export-btn" 
+              onClick={testConnection} 
+              style={{ marginLeft: 8, backgroundColor: '#6c757d' }}
+            >
+              Test Connection
+            </button>
           </div>
         </div>
       )}
@@ -661,7 +1129,17 @@ const AttendanceReport = () => {
             />
           </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
-            <button className="export-btn" onClick={exportToCSV} disabled={!reports.length}>Export CSV</button>
+            <button 
+              className="export-btn" 
+              onClick={fetchStudentAttendance} 
+              disabled={loading || !selectedStudent || !startDate || !endDate}
+              style={{ backgroundColor: '#007bff' }}
+            >
+              {loading ? 'Loading...' : 'Fetch Report'}
+            </button>
+            <button className="export-btn" onClick={exportToCSV} disabled={!reports.length} style={{ marginLeft: 8, backgroundColor: '#17a2b8' }}>
+              Export CSV
+            </button>
             <button 
               className="export-btn" 
               style={{ marginLeft: 8, backgroundColor: '#28a745' }}
@@ -735,8 +1213,242 @@ const AttendanceReport = () => {
           {startDate && endDate && (
             <div style={{ margin: '16px 0', fontWeight: 500, color: '#444', fontSize: '16px' }}>
               Showing results from <span style={{ color: '#2e7d32' }}>{startDate}</span> to <span style={{ color: '#2e7d32' }}>{endDate}</span>
+              {rangeReport.length > 0 && (
+                <span style={{ marginLeft: '20px', color: '#666', fontSize: '14px' }}>
+                  ({rangeReport.length} students)
+                </span>
+              )}
             </div>
           )}
+          
+          {/* Total Attendance Summary for Range Report */}
+          {rangeReport.length > 0 && (
+            <div className="total-attendance-summary">
+              <h3>📊 Total Attendance Summary for Date Range</h3>
+              <div className="total-attendance-grid">
+                {rangeReport.map((student, index) => (
+                  <div key={student.studentId} className="student-attendance-card">
+                    <div className="student-name">
+                      {student.fullName}
+                    </div>
+                    <div className="student-info">
+                      {student.rollNumber} - {student.className} {student.section}
+                    </div>
+                    {student.totalAttendance && student.totalAttendance.marked > 0 ? (
+                      <div className={`attendance-summary-box ${
+                        student.totalAttendance.percentage >= 75 ? 'good' : 
+                        student.totalAttendance.percentage >= 50 ? 'average' : 'poor'
+                      }`}>
+                        <span className="attendance-label">
+                          Total Attendance:
+                        </span>
+                        <span className={`attendance-value ${
+                          student.totalAttendance.percentage >= 75 ? 'good' : 
+                          student.totalAttendance.percentage >= 50 ? 'average' : 'poor'
+                        }`}>
+                          {student.totalAttendance.present}/{student.totalAttendance.marked} ({student.totalAttendance.percentage}%)
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="attendance-summary-box poor">
+                        <span className="attendance-label">
+                          Total Attendance:
+                        </span>
+                        <span className="attendance-value poor">
+                          No attendance data
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Overall Statistics for Range Report */}
+          {rangeReport.length > 0 && (
+            <div className="overall-statistics">
+              <h3>📈 Overall Statistics for Date Range</h3>
+              <div className="statistics-grid">
+                {(() => {
+                  const stats = {
+                    totalStudents: rangeReport.length,
+                    totalPresentPeriods: 0,
+                    totalMarkedPeriods: 0,
+                    averageAttendance: 0,
+                    studentsWithGoodAttendance: 0, // >= 75%
+                    studentsWithAverageAttendance: 0, // 50-74%
+                    studentsWithPoorAttendance: 0, // < 50%
+                    studentsWithNoAttendance: 0 // no attendance data
+                  };
+                  
+                  // Calculate statistics from the range report data
+                  rangeReport.forEach(student => {
+                    // Check if student has totalAttendance data
+                    if (student.totalAttendance && student.totalAttendance.marked > 0) {
+                      stats.totalPresentPeriods += student.totalAttendance.present || 0;
+                      stats.totalMarkedPeriods += student.totalAttendance.marked || 0;
+                      
+                      const percentage = student.totalAttendance.percentage || 0;
+                      if (percentage >= 75) {
+                        stats.studentsWithGoodAttendance++;
+                      } else if (percentage >= 50) {
+                        stats.studentsWithAverageAttendance++;
+                      } else {
+                        stats.studentsWithPoorAttendance++;
+                      }
+                    } else {
+                      // If no attendance data, count as no attendance
+                      stats.studentsWithNoAttendance++;
+                    }
+                  });
+                  
+                  // If we have backend overallStats, use them for verification
+                  if (window.lastRangeReportData && window.lastRangeReportData.overallStats) {
+                    const backendStats = window.lastRangeReportData.overallStats;
+                    console.log('Backend vs Frontend stats comparison:', {
+                      backend: backendStats,
+                      frontend: {
+                        totalPresentPeriods: stats.totalPresentPeriods,
+                        totalMarkedPeriods: stats.totalMarkedPeriods,
+                        studentsWithData: stats.totalStudents - stats.studentsWithNoAttendance
+                      }
+                    });
+                  }
+                  
+                  // Calculate average attendance percentage
+                  stats.averageAttendance = stats.totalMarkedPeriods > 0 ? 
+                    Math.round((stats.totalPresentPeriods / stats.totalMarkedPeriods) * 100) : 0;
+                  
+                  // Debug logging
+                  console.log('Overall Statistics Calculation:', {
+                    totalStudents: stats.totalStudents,
+                    studentsWithData: rangeReport.filter(s => s.totalAttendance && s.totalAttendance.marked > 0).length,
+                    studentsWithNoData: stats.studentsWithNoAttendance,
+                    totalPresentPeriods: stats.totalPresentPeriods,
+                    totalMarkedPeriods: stats.totalMarkedPeriods,
+                    averageAttendance: stats.averageAttendance
+                  });
+                  
+                  return [
+                    { label: 'Total Students', value: stats.totalStudents, color: '#2196f3' },
+                    { label: 'Total Present Periods', value: stats.totalPresentPeriods, color: '#4caf50' },
+                    { label: 'Total Marked Periods', value: stats.totalMarkedPeriods, color: '#ff9800' },
+                    { label: 'Average Attendance %', value: `${stats.averageAttendance}%`, color: '#9c27b0' },
+                    { label: 'Good Attendance (≥75%)', value: stats.studentsWithGoodAttendance, color: '#4caf50' },
+                    { label: 'Average Attendance (50-74%)', value: stats.studentsWithAverageAttendance, color: '#ff9800' },
+                    { label: 'Poor Attendance (<50%)', value: stats.studentsWithPoorAttendance, color: '#f44336' },
+                    { label: 'No Attendance Data', value: stats.studentsWithNoAttendance, color: '#6c757d' }
+                  ].map((stat, index) => (
+                    <div key={index} className="stat-card">
+                      <div className="stat-value" style={{ color: stat.color }}>
+                        {stat.value}
+                      </div>
+                      <div className="stat-label">
+                        {stat.label}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+          
+          {/* Export buttons for range report */}
+          {rangeReport.length > 0 && (
+            <div style={{ margin: '16px 0', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button 
+                className="export-btn" 
+                onClick={exportRangeCSV}
+                style={{ backgroundColor: '#17a2b8' }}
+              >
+                <FaDownload style={{ marginRight: '4px' }} />
+                Export CSV
+              </button>
+              <button 
+                className="export-btn" 
+                onClick={exportRangeExcel}
+                style={{ backgroundColor: '#28a745' }}
+              >
+                <FaDownload style={{ marginRight: '4px' }} />
+                Export Excel
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '16px' }}>
+                <input 
+                  type="email" 
+                  value={emailAddress} 
+                  onChange={e => setEmailAddress(e.target.value)}
+                  placeholder="Enter email to send report"
+                  style={{ width: '250px', padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+                <button 
+                  className="export-btn" 
+                  style={{ backgroundColor: '#ffc107', color: '#000' }}
+                  onClick={() => {
+                    if (!rangeReport.length || !rangeDates.length || !periods) {
+                      toast.error('No data available to send. Please generate a report first.');
+                      return;
+                    }
+                    
+                    // Use the same logic as exportRangeCSV function
+                    const headers = ['Student Name', 'Roll Number', 'Class', 'Section'];
+                    rangeDates.forEach(date => {
+                      periods.forEach(period => {
+                        headers.push(`${date} P${period}`);
+                      });
+                    });
+                    // Add total attendance columns
+                    headers.push('Total Present Periods', 'Total Marked Periods', 'Total Attendance %');
+                    
+                    const rows = rangeReport.map(r => {
+                      const row = [r.fullName, r.rollNumber, r.className, r.section];
+                      if (r.attendance) {
+                        if (Array.isArray(r.attendance)) {
+                          // Range report structure: array of date objects
+                          r.attendance.forEach(a => {
+                            periods.forEach(period => {
+                              row.push(a[`period${period}`] || 'not-marked');
+                            });
+                          });
+                        } else if (typeof r.attendance === 'object' && r.attendance !== null) {
+                          // Date range report structure: object with date keys
+                          rangeDates && rangeDates.forEach(date => {
+                            periods.forEach(period => {
+                              row.push(r.attendance[date] || 'not-marked');
+                            });
+                          });
+                        }
+                      }
+                      // Add total attendance data
+                      if (r.totalAttendance) {
+                        row.push(r.totalAttendance.present, r.totalAttendance.marked, `${r.totalAttendance.percentage}%`);
+                      } else {
+                        row.push('', '', '');
+                      }
+                      return row;
+                    });
+                    
+                    console.log('Range report email data:', { headers, rows, rangeReport });
+                    
+                    sendReportViaEmail('range', { 
+                      headers, 
+                      rows, 
+                      startDate, 
+                      endDate, 
+                      className: selectedClass, 
+                      section: selectedSection,
+                      totalStudents: rangeReport.length,
+                      generatedAt: new Date().toLocaleString('en-IN')
+                    });
+                  }}
+                  disabled={!rangeReport.length || !emailAddress || sendingEmail}
+                >
+                  {sendingEmail ? 'Sending...' : 'Send Email'}
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className="attendance-table-container">
             {loading ? <div className="loading-message">Loading...</div> : (
               rangeReport.length ? (
@@ -761,9 +1473,21 @@ const AttendanceReport = () => {
                         <td>{r.rollNumber || r.student?.rollNumber || '-'}</td>
                         <td>{r.className || r.student?.className || '-'}</td>
                         <td>{r.section || r.student?.section || '-'}</td>
-                        {r.attendance && r.attendance.map((a, aidx) => (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
-                          <td key={aidx + '-p' + period}>{a[`period${period}`] || '-'}</td>
-                        )))}
+                        {r.attendance && (() => {
+                          // Handle different attendance data structures
+                          if (Array.isArray(r.attendance)) {
+                            // Range report structure: array of date objects
+                            return r.attendance.map((a, aidx) => (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                              <td key={aidx + '-p' + period}>{a[`period${period}`] || '-'}</td>
+                            )));
+                          } else if (typeof r.attendance === 'object' && r.attendance !== null) {
+                            // Date range report structure: object with date keys
+                            return rangeDates && rangeDates.map((date, dateIdx) => (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                              <td key={dateIdx + '-p' + period}>{r.attendance[date] || '-'}</td>
+                            )));
+                          }
+                          return null;
+                        })()}
                       </tr>
                     ))}
                   </tbody>

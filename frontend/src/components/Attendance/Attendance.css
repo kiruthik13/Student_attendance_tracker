@@ -484,4 +484,139 @@
   .attendance-form {
     padding: 20px;
   }
+
+  .total-attendance-grid,
+  .statistics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Total Attendance Summary Styles */
+.total-attendance-summary {
+  margin: 16px 0;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.total-attendance-summary h3 {
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 18px;
+}
+
+.total-attendance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.student-attendance-card {
+  padding: 12px;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.student-name {
+  font-weight: bold;
+  color: #495057;
+  margin-bottom: 4px;
+}
+
+.student-info {
+  font-size: 14px;
+  color: #6c757d;
+  margin-bottom: 8px;
+}
+
+.attendance-summary-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.attendance-summary-box.good {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.attendance-summary-box.average {
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+}
+
+.attendance-summary-box.poor {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.attendance-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.attendance-value {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.attendance-value.good {
+  color: #155724;
+}
+
+.attendance-value.average {
+  color: #856404;
+}
+
+.attendance-value.poor {
+  color: #721c24;
+}
+
+/* Overall Statistics Styles */
+.overall-statistics {
+  margin: 16px 0;
+  padding: 16px;
+  background-color: #e3f2fd;
+  border-radius: 8px;
+  border: 1px solid #bbdefb;
+}
+
+.overall-statistics h3 {
+  margin: 0 0 12px 0;
+  color: #1976d2;
+  font-size: 18px;
+}
+
+.statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.stat-card {
+  padding: 12px;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
 } 

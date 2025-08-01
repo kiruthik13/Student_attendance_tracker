@@ -215,7 +215,7 @@ const emailTemplates = {
 };
 
 // Send email function
-const sendEmail = async (to, template, data = {}) => {
+const sendEmail = async (to, template, data = []) => {
   try {
     const transporter = createTransporter();
     console.log('Email template data:', { to, template, data });

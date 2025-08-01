@@ -358,7 +358,7 @@ const AdminDashboard = () => {
                 </h2>
               </div>
               <StudentForm
-                onSuccess={() => {
+                onSave={(student) => {
                   setCurrentView('students');
                   fetchDashboardStats();
                 }}
@@ -386,7 +386,7 @@ const AdminDashboard = () => {
               </div>
               <StudentForm
                 student={selectedStudent}
-                onSuccess={() => {
+                onSave={(student) => {
                   setCurrentView('students');
                   setSelectedStudent(null);
                   fetchDashboardStats();
