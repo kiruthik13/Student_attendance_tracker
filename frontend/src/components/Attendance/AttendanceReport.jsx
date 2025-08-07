@@ -6,6 +6,17 @@ import { getStudentAttendance } from '../../utils/api';
 import './Attendance.css';
 
 const AttendanceReport = () => {
+  // Period timings mapping
+  const periodTimings = {
+    1: '8:45-9:35 am',
+    2: '9:35-10:25 am', 
+    3: '10:45-11:35 am',
+    4: '11:35 am-12:25 pm',
+    5: '1:25-2:15 pm',
+    6: '2:15-3:05 pm',
+    7: '3:25-4:15 pm'
+  };
+
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedClass, setSelectedClass] = useState('');
@@ -65,6 +76,7 @@ const AttendanceReport = () => {
   const [periods, setPeriods] = useState([]); // Added periods state
   const [emailAddress, setEmailAddress] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [selectedStudentDetails, setSelectedStudentDetails] = useState(null);
 
   useEffect(() => {
     fetchClasses();
@@ -246,12 +258,38 @@ const AttendanceReport = () => {
       const data = await getStudentAttendance(selectedStudent, startDate, endDate);
       console.log('Student attendance response:', data);
       
+      // Get student details from the first attendance record or from students list
+      let studentDetails = null;
+      if (data.attendance && data.attendance.length > 0) {
+        const firstRecord = data.attendance[0];
+        if (firstRecord.student) {
+          studentDetails = firstRecord.student;
+        }
+      }
+      
+      // If no student details from attendance, get from students list
+      if (!studentDetails) {
+        const selectedStudentObj = students.find(s => s._id === selectedStudent);
+        if (selectedStudentObj) {
+          studentDetails = selectedStudentObj;
+        }
+      }
+      
+      setSelectedStudentDetails(studentDetails);
+      
       // Process the attendance data to create a proper report format
       const processedReports = [];
       
       if (data.attendance && data.attendance.length > 0) {
         data.attendance.forEach(record => {
-          const date = new Date(record.date).toLocaleDateString('en-GB');
+          // Ensure proper date formatting
+          const recordDate = new Date(record.date);
+          if (isNaN(recordDate.getTime())) {
+            console.warn('Invalid date found:', record.date);
+            return; // Skip invalid dates
+          }
+          
+          const date = recordDate.toLocaleDateString('en-GB');
           
           // Process forenoon periods
           if (record.forenoon && record.forenoon.periods) {
@@ -259,9 +297,12 @@ const AttendanceReport = () => {
               processedReports.push({
                 date: date,
                 period: period.period,
-                status: period.status,
+                status: period.status || 'not-marked',
                 remarks: period.remarks || '-',
-                session: 'Forenoon'
+                session: 'Forenoon',
+                studentId: record.student?._id || record.student,
+                studentName: record.student?.fullName || studentDetails?.fullName || 'Unknown',
+                rollNumber: record.student?.rollNumber || studentDetails?.rollNumber || '-'
               });
             });
           }
@@ -272,21 +313,62 @@ const AttendanceReport = () => {
               processedReports.push({
                 date: date,
                 period: period.period,
-                status: period.status,
+                status: period.status || 'not-marked',
                 remarks: period.remarks || '-',
-                session: 'Afternoon'
+                session: 'Afternoon',
+                studentId: record.student?._id || record.student,
+                studentName: record.student?.fullName || studentDetails?.fullName || 'Unknown',
+                rollNumber: record.student?.rollNumber || studentDetails?.rollNumber || '-'
               });
             });
           }
         });
       }
       
+      // If no attendance records found, create entries for the date range showing "not-marked"
+      if (processedReports.length === 0) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        // Generate entries for each date in the range
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const date = d.toLocaleDateString('en-GB');
+          
+          // Add entries for all periods (1-7)
+          for (let period = 1; period <= 7; period++) {
+            const session = period <= 4 ? 'Forenoon' : 'Afternoon';
+            processedReports.push({
+              date: date,
+              period: period,
+              status: 'not-marked',
+              remarks: '-',
+              session: session,
+        studentId: selectedStudent,
+              studentName: studentDetails?.fullName || 'Unknown',
+              rollNumber: studentDetails?.rollNumber || '-'
+            });
+          }
+        }
+      }
+      
+      // Sort by date and period
+      processedReports.sort((a, b) => {
+        const dateA = new Date(a.date.split('/').reverse().join('-'));
+        const dateB = new Date(b.date.split('/').reverse().join('-'));
+        if (dateA.getTime() !== dateB.getTime()) {
+          return dateA - dateB;
+        }
+        return a.period - b.period;
+      });
+      
       setReports(processedReports);
       
       if (processedReports.length > 0) {
-        toast.success(`Generated report for ${processedReports.length} attendance records`);
-      } else {
-        toast.info('No attendance data found for the selected student and date range');
+        const markedCount = processedReports.filter(r => r.status !== 'not-marked').length;
+        const totalCount = processedReports.length;
+        toast.success(`Generated report: ${markedCount} marked out of ${totalCount} total records`);
+        } else {
+          toast.info('No attendance data found for the selected student and date range');
       }
     } catch (error) {
       console.error('Error fetching student attendance:', error);
@@ -737,17 +819,6 @@ const AttendanceReport = () => {
     }
   };
 
-  // For period timings
-  const periodTimings = {
-    1: '8:45-9:35 am',
-    2: '9:35-10:25 am',
-    3: '10:45-11:35 am',
-    4: '11:35 am-12:25 pm',
-    5: '1:25-2:15 pm',
-    6: '2:15-3:05 pm',
-    7: '3:25-4:15 pm'
-  };
-
   const exportToCSV = () => {
     if (!reports.length) return;
     const periodsToUse = periods && periods.length ? periods : [1,2,3,4,5,6,7];
@@ -859,18 +930,27 @@ const AttendanceReport = () => {
       late: 0,
       'half-day': 0,
       'not-marked': 0,
-      total: reports.length
+      total: 0
     };
+
     reports.forEach(record => {
-      const status = getStudentDayStatus(record);
+      counts.total++;
+      const status = record.status || 'not-marked';
       if (counts.hasOwnProperty(status)) {
         counts[status]++;
+      } else {
+        counts['not-marked']++;
       }
     });
+
     return counts;
   };
 
   const studentDayCounts = getStudentDayCounts();
+
+  const getPeriodTime = (period) => {
+    return periodTimings[period] || '-';
+  };
 
   return (
     <div className="attendance-report-container">
@@ -1545,7 +1625,70 @@ const AttendanceReport = () => {
         </div>
       )}
 
-      {selectedClass && selectedSection && selectedDate && (
+      {/* Summary Cards for Student Report */}
+      {reportType === 'student' && reports.length > 0 && (
+        <div className="report-summary">
+          <div className="summary-cards">
+            <div className="summary-card total">
+              <div className="card-icon">
+                <FaChartBar />
+              </div>
+              <div className="card-content">
+                <h3>{studentDayCounts.total}</h3>
+                <p>Total Periods</p>
+              </div>
+            </div>
+            <div className="summary-card present">
+              <div className="card-icon">
+                <FaCalendar />
+              </div>
+              <div className="card-content">
+                <h3>{studentDayCounts.present}</h3>
+                <p>Present ({getStatusPercentage(studentDayCounts.present, studentDayCounts.total)}%)</p>
+              </div>
+            </div>
+            <div className="summary-card absent">
+              <div className="card-icon">
+                <FaCalendar />
+              </div>
+              <div className="card-content">
+                <h3>{studentDayCounts.absent}</h3>
+                <p>Absent ({getStatusPercentage(studentDayCounts.absent, studentDayCounts.total)}%)</p>
+              </div>
+            </div>
+            <div className="summary-card late">
+              <div className="card-icon">
+                <FaCalendar />
+              </div>
+              <div className="card-content">
+                <h3>{studentDayCounts.late}</h3>
+                <p>Late ({getStatusPercentage(studentDayCounts.late, studentDayCounts.total)}%)</p>
+              </div>
+            </div>
+            <div className="summary-card half-day">
+              <div className="card-icon">
+                <FaCalendar />
+              </div>
+              <div className="card-content">
+                <h3>{studentDayCounts['half-day']}</h3>
+                <p>Half-Day ({getStatusPercentage(studentDayCounts['half-day'], studentDayCounts.total)}%)</p>
+              </div>
+            </div>
+            <div className="summary-card not-marked">
+              <div className="card-icon">
+                <FaCalendar />
+              </div>
+              <div className="card-content">
+                <h3>{studentDayCounts['not-marked']}</h3>
+                <p>Not Marked ({getStatusPercentage(studentDayCounts['not-marked'], studentDayCounts.total)}%)</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Cards for Class Reports (Daily and Date Range) */}
+      {reportType !== 'student' && selectedClass && selectedSection && selectedDate && (
         <div className="report-summary">
           <div className="summary-cards">
             <div className="summary-card total">
@@ -1614,7 +1757,11 @@ const AttendanceReport = () => {
 
       {reports.length > 0 && (
         <div className="report-table-container">
-          <h3>Detailed Report - {selectedClass}-{selectedSection} ({selectedDate})</h3>
+          <h3>
+            Detailed Report - {selectedStudentDetails?.fullName || 'Student'} 
+            ({selectedStudentDetails?.rollNumber || 'N/A'}) 
+            ({new Date().toLocaleDateString()})
+          </h3>
           <table className="report-table">
             <thead>
               <tr>
@@ -1629,17 +1776,19 @@ const AttendanceReport = () => {
             </thead>
             <tbody>
               {reports.map((record, idx) => (
-                (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
-                  <tr key={`${record.studentId || idx}-p${period}`}>
-                    <td>{record.rollNumber || record.student?.rollNumber || '-'}</td>
-                    <td>{record.fullName || record.student?.fullName || '-'}</td>
-                    <td>{`P${period}`}</td>
-                    <td>{record[`period${period}`] || '-'}</td>
-                    <td>{period >= 1 && period <= 4 ? 'Forenoon' : 'Afternoon'}</td>
-                    <td>{selectedDate ? new Date(selectedDate).toLocaleDateString() : '-'}</td>
-                    <td>-</td>
+                <tr key={`${record.studentId || idx}-${record.date}-${record.period}`}>
+                  <td>{record.rollNumber || '-'}</td>
+                  <td>{record.studentName || '-'}</td>
+                  <td>{`P${record.period} (${getPeriodTime(record.period)})`}</td>
+                  <td>
+                    <span className={`status-badge ${record.status}`}>
+                      {record.status === 'not-marked' ? 'Not Marked' : record.status}
+                    </span>
+                  </td>
+                  <td>{record.session || '-'}</td>
+                  <td>{record.date || '-'}</td>
+                  <td>{record.remarks || '-'}</td>
                   </tr>
-                ))
               ))}
             </tbody>
           </table>

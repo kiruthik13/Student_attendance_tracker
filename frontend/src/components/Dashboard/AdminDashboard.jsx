@@ -111,26 +111,40 @@ const AdminDashboard = () => {
       console.log('Attendance data:', attendanceData);
 
       const totalStudents = studentsData.students?.length || 0;
-      const attendanceRecords = attendanceData.attendance || [];
+      const allAttendanceRecords = attendanceData.attendance || [];
+
+      // Filter for today's attendance only
+      const today = new Date();
+      const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      const todayAttendanceRecords = allAttendanceRecords.filter(record => {
+        const recordDate = new Date(record.date);
+        const recordDateString = recordDate.toISOString().split('T')[0];
+        return recordDateString === todayString;
+      });
 
       console.log(`Total students: ${totalStudents}`);
-      console.log(`Attendance records: ${attendanceRecords.length}`);
+      console.log(`Total attendance records: ${allAttendanceRecords.length}`);
+      console.log(`Today's attendance records: ${todayAttendanceRecords.length}`);
+      console.log(`Today's date: ${todayString}`);
 
-      // Process attendance data more accurately
+      // Process today's attendance data
       let presentStudents = 0;
       let absentStudents = 0;
       let totalPresentPeriods = 0;
       let totalMarkedPeriods = 0;
       let studentsWithNoAttendance = 0;
 
-      // Create a map of student attendance
+      // Create a map of student attendance for today only
       const studentAttendanceMap = {};
-      attendanceRecords.forEach(record => {
+      
+      todayAttendanceRecords.forEach(record => {
         const studentId = record.student?._id || record.student;
         if (!studentAttendanceMap[studentId]) {
           studentAttendanceMap[studentId] = {
             presentPeriods: 0,
-            totalPeriods: 0
+            totalPeriods: 0,
+            hasAnyAttendance: false
           };
         }
 
@@ -138,6 +152,7 @@ const AdminDashboard = () => {
         if (record.forenoon && record.forenoon.periods) {
           record.forenoon.periods.forEach(period => {
             studentAttendanceMap[studentId].totalPeriods++;
+            studentAttendanceMap[studentId].hasAnyAttendance = true;
             if (period.status === 'present') {
               studentAttendanceMap[studentId].presentPeriods++;
             }
@@ -147,6 +162,7 @@ const AdminDashboard = () => {
         if (record.afternoon && record.afternoon.periods) {
           record.afternoon.periods.forEach(period => {
             studentAttendanceMap[studentId].totalPeriods++;
+            studentAttendanceMap[studentId].hasAnyAttendance = true;
             if (period.status === 'present') {
               studentAttendanceMap[studentId].presentPeriods++;
             }
@@ -154,17 +170,18 @@ const AdminDashboard = () => {
         }
       });
 
-      console.log('Student attendance map:', studentAttendanceMap);
+      console.log('Today\'s student attendance map:', studentAttendanceMap);
 
-      // Calculate statistics
+      // Calculate statistics for today only
       studentsData.students.forEach(student => {
         const studentId = student._id;
         const studentData = studentAttendanceMap[studentId];
         
-        if (studentData && studentData.totalPeriods > 0) {
+        if (studentData && studentData.hasAnyAttendance) {
           totalPresentPeriods += studentData.presentPeriods;
           totalMarkedPeriods += studentData.totalPeriods;
           
+          // A student is considered present if they have at least one present period today
           if (studentData.presentPeriods > 0) {
             presentStudents++;
           } else {
@@ -175,7 +192,7 @@ const AdminDashboard = () => {
         }
       });
 
-      // Calculate attendance rate
+      // Calculate attendance rate for today
       const attendanceRate = totalMarkedPeriods > 0 
         ? Math.round((totalPresentPeriods / totalMarkedPeriods) * 100) 
         : 0;
@@ -190,7 +207,7 @@ const AdminDashboard = () => {
         totalMarkedPeriods
       };
 
-      console.log('Calculated stats:', statsData);
+      console.log('Calculated today\'s stats:', statsData);
 
       setStats(statsData);
       setLast7Days([]);
@@ -206,6 +223,20 @@ const AdminDashboard = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('admin');
     window.location.href = '/login';
+  };
+
+  const refreshDashboard = () => {
+    fetchDashboardStats();
+  };
+
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
 
   const navigationItems = [
@@ -224,9 +255,19 @@ const AdminDashboard = () => {
             <div className="content-header">
               <h1 className="welcome-message">Welcome to Student Attendance Tracker</h1>
               <p className="welcome-subtitle">Manage your students and track attendance efficiently</p>
-              {lastUpdated && (
-                <p className="last-updated">Last updated: {new Date(lastUpdated).toLocaleString()}</p>
-              )}
+              <div className="dashboard-info">
+                <p className="today-date">Today: {getTodayDate()}</p>
+                {lastUpdated && (
+                  <p className="last-updated">Last updated: {new Date(lastUpdated).toLocaleString()}</p>
+                )}
+                <button 
+                  className="refresh-btn" 
+                  onClick={refreshDashboard}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Refreshing...' : 'Refresh'}
+                </button>
+              </div>
             </div>
 
             <div className="stats-grid">

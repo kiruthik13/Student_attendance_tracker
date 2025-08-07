@@ -333,10 +333,33 @@
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  text-transform: capitalize;
+  display: inline-block;
+}
+
+.status-badge.present {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.absent {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.late {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.half-day {
+  background: #ffeaa7;
+  color: #d63031;
+}
+
+.status-badge.not-marked {
+  background: #e9ecef;
+  color: #6c757d;
 }
 
 /* Report Summary */
