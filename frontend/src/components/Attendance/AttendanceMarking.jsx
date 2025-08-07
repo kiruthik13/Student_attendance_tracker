@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { API_ENDPOINTS } from '../../config/api';
+import { getStudentClasses, getStudentSections, getStudents } from '../../utils/api';
 
 const allPeriods = [1,2,3,4,5,6,7];
 const periodLabels = {
@@ -28,26 +30,39 @@ export default function AttendanceMarking() {
   const [selectedStudent, setSelectedStudent] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    axios.get('/api/students/classes/list', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => setClasses(res.data.classes));
-    axios.get('/api/students/sections/list', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => setSections(res.data.sections));
+    const fetchData = async () => {
+      try {
+        const [classesData, sectionsData] = await Promise.all([
+          getStudentClasses(),
+          getStudentSections()
+        ]);
+        setClasses(classesData.classes || []);
+        setSections(sectionsData.sections || []);
+      } catch (error) {
+        console.error('Error fetching classes and sections:', error);
+        toast.error('Failed to load classes and sections');
+      }
+    };
+    
+    fetchData();
   }, []);
 
   useEffect(() => {
     if (!selectedClass || !selectedSection) return;
     setLoading(true);
-    const token = localStorage.getItem('token');
-    axios.get(`/api/students?className=${selectedClass}&section=${selectedSection}&isActive=true`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-      .then(res => {
-        setStudents(res.data.students);
+    
+    const fetchStudents = async () => {
+      try {
+        const studentsData = await getStudents();
+        const filteredStudents = studentsData.students?.filter(student => 
+          student.className === selectedClass && 
+          student.section === selectedSection && 
+          student.isActive === true
+        ) || [];
+        
+        setStudents(filteredStudents);
         const data = {};
-        res.data.students.forEach(student => {
+        filteredStudents.forEach(student => {
           data[student._id] = {};
           allPeriods.forEach(period => {
             data[student._id][period] = { status: 'present', remarks: '' };
@@ -55,8 +70,15 @@ export default function AttendanceMarking() {
         });
         setAttendanceData(data);
         setSelectedStudent(''); // Reset selected student when class/section changes
-      })
-      .finally(() => setLoading(false));
+      } catch (error) {
+        console.error('Error fetching students:', error);
+        toast.error('Failed to load students');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchStudents();
   }, [selectedClass, selectedSection]);
 
   const handleAttendanceChange = (studentId, period, status) => {
@@ -139,7 +161,7 @@ export default function AttendanceMarking() {
         });
       });
 
-      const response = await axios.post('/api/attendance/bulk-mark', payload, {
+              const response = await axios.post(API_ENDPOINTS.ATTENDANCE_BULK_MARK, payload, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

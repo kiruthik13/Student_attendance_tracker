@@ -9,4 +9,14 @@ export default defineConfig({
       '/api': 'https://student-attendance-tracker-1-n2l2.onrender.com',
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  },
 })

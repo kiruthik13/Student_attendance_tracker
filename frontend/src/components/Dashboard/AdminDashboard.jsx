@@ -8,6 +8,7 @@ import StudentDetail from '../Students/StudentDetail';
 import AttendanceMarking from '../Attendance/AttendanceMarking';
 import AttendanceReport from '../Attendance/AttendanceReport';
 import { API_ENDPOINTS } from '../../config/api';
+import { getStudents, getAttendanceToday, getHealth } from '../../utils/api';
 import './Dashboard.css';
 
 const AdminDashboard = () => {
@@ -27,6 +28,15 @@ const AdminDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
+    // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('No authentication token found');
+      toast.error('Please login to access the dashboard');
+      window.location.href = '/login';
+      return;
+    }
+    
     fetchDashboardStats();
   }, []);
 
@@ -44,6 +54,9 @@ const AdminDashboard = () => {
 
       console.log('Fetching dashboard stats using fallback method');
       
+      // Test API connection first
+      await testAPIConnection();
+      
       // Use the fallback method directly since the new endpoint isn't working
       await fetchDashboardStatsFallback();
       
@@ -55,22 +68,33 @@ const AdminDashboard = () => {
     }
   };
 
+  const testAPIConnection = async () => {
+    try {
+      console.log('Testing API connection...');
+      const token = localStorage.getItem('token');
+      console.log('Token available:', !!token);
+      
+      const healthData = await getHealth();
+      console.log('Health check data:', healthData);
+      
+    } catch (error) {
+      console.error('API connection test failed:', error);
+      toast.error('Cannot connect to backend server. Please check your internet connection.');
+    }
+  };
+
   const fetchDashboardStatsFallback = async () => {
     try {
-      const token = localStorage.getItem('token');
       console.log('Fetching students and attendance data...');
+      console.log('Using API endpoints:', {
+        students: API_ENDPOINTS.STUDENTS,
+        attendance: API_ENDPOINTS.ATTENDANCE_TODAY
+      });
       
-      const [studentsResponse, attendanceResponse] = await Promise.all([
-        fetch(API_ENDPOINTS.STUDENTS, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(API_ENDPOINTS.ATTENDANCE_TODAY, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+      const [studentsData, attendanceData] = await Promise.all([
+        getStudents(),
+        getAttendanceToday()
       ]);
-
-      const studentsData = await studentsResponse.json();
-      const attendanceData = await attendanceResponse.json();
 
       console.log('Students data:', studentsData);
       console.log('Attendance data:', attendanceData);
@@ -163,6 +187,7 @@ const AdminDashboard = () => {
       
     } catch (error) {
       console.error('Fallback dashboard stats error:', error);
+      toast.error('Failed to load dashboard data: ' + error.message);
     }
   };
 
