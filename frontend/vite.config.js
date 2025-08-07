@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:5000',
+      '/api': 'https://student-attendance-tracker-1-n2l2.onrender.com',
     },
   },
 })
