@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { FaCalendar, FaUsers, FaDownload, FaFilter, FaChartBar } from 'react-icons/fa';
 import { API_ENDPOINTS } from '../../config/api';
+import { getStudentAttendance } from '../../utils/api';
 import './Attendance.css';
 
 const AttendanceReport = () => {
@@ -236,44 +237,60 @@ const AttendanceReport = () => {
         return;
       }
       
-      const token = localStorage.getItem('token');
-      const params = new URLSearchParams({
-        startDate,
-        endDate
-      });
-      
       console.log('Fetching student attendance with params:', {
         studentId: selectedStudent,
         startDate,
         endDate
       });
       
-      const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_MARK.replace('/mark','/student')}/${selectedStudent}?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const data = await getStudentAttendance(selectedStudent, startDate, endDate);
+      console.log('Student attendance response:', data);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Student attendance response:', data);
-        setReports(data.attendance || []);
-        
-        if (data.attendance && data.attendance.length > 0) {
-          toast.success(`Generated report for ${data.attendance.length} records`);
-        } else {
-          toast.info('No attendance data found for the selected student and date range');
-        }
+      // Process the attendance data to create a proper report format
+      const processedReports = [];
+      
+      if (data.attendance && data.attendance.length > 0) {
+        data.attendance.forEach(record => {
+          const date = new Date(record.date).toLocaleDateString('en-GB');
+          
+          // Process forenoon periods
+          if (record.forenoon && record.forenoon.periods) {
+            record.forenoon.periods.forEach(period => {
+              processedReports.push({
+                date: date,
+                period: period.period,
+                status: period.status,
+                remarks: period.remarks || '-',
+                session: 'Forenoon'
+              });
+            });
+          }
+          
+          // Process afternoon periods
+          if (record.afternoon && record.afternoon.periods) {
+            record.afternoon.periods.forEach(period => {
+              processedReports.push({
+                date: date,
+                period: period.period,
+                status: period.status,
+                remarks: period.remarks || '-',
+                session: 'Afternoon'
+              });
+            });
+          }
+        });
+      }
+      
+      setReports(processedReports);
+      
+      if (processedReports.length > 0) {
+        toast.success(`Generated report for ${processedReports.length} attendance records`);
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to fetch student attendance:', response.status, response.statusText, errorData);
-        toast.error(errorData.message || 'Failed to fetch student attendance');
-        setReports([]);
+        toast.info('No attendance data found for the selected student and date range');
       }
     } catch (error) {
       console.error('Error fetching student attendance:', error);
-      toast.error('Error fetching student attendance');
+      toast.error('Error fetching student attendance: ' + error.message);
       setReports([]);
     } finally {
       setLoading(false);

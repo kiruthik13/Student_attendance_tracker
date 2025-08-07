@@ -62,3 +62,7 @@ export const getStudentClasses = () => apiCall(API_ENDPOINTS.STUDENT_CLASSES);
 export const getStudentSections = () => apiCall(API_ENDPOINTS.STUDENT_SECTIONS);
 export const getAttendanceToday = () => apiCall(API_ENDPOINTS.ATTENDANCE_TODAY);
 export const getHealth = () => apiCall(API_ENDPOINTS.HEALTH);
+export const getStudentAttendance = (studentId, startDate, endDate) => {
+  const params = new URLSearchParams({ startDate, endDate });
+  return apiCall(`${API_ENDPOINTS.ATTENDANCE_STUDENT}/${studentId}?${params}`);
+};

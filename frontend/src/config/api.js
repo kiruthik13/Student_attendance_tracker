@@ -35,6 +35,7 @@ export const API_ENDPOINTS = {
   ATTENDANCE_DASHBOARD_STATS: `${API_BASE_URL}/api/attendance/dashboard-stats`,
   ATTENDANCE_SEND_CSV_REPORT: `${API_BASE_URL}/api/attendance/send-csv-report`,
   ATTENDANCE_DEBUG: `${API_BASE_URL}/api/attendance/debug-attendance`,
+  ATTENDANCE_STUDENT: `${API_BASE_URL}/api/attendance/student`,
   
   // Health check
   HEALTH: `${API_BASE_URL}/api/health`,
