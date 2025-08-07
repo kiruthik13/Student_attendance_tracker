@@ -1,8 +1,15 @@
 // API Configuration
-const isDevelopment = process.env.NODE_ENV === 'development';
-const API_BASE_URL = isDevelopment 
+const isDevelopment = import.meta.env.DEV;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (isDevelopment 
   ? 'http://localhost:5000' 
-  : 'https://student-attendance-tracker-1-n2l2.onrender.com';
+  : 'https://student-attendance-tracker-1-n2l2.onrender.com');
+
+console.log('API Configuration:', {
+  isDevelopment,
+  API_BASE_URL,
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+  importMetaEnv: import.meta.env
+});
 
 export const API_ENDPOINTS = {
   // Admin endpoints

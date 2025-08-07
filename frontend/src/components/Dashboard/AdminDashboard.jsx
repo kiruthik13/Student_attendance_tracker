@@ -74,6 +74,17 @@ const AdminDashboard = () => {
       const token = localStorage.getItem('token');
       console.log('Token available:', !!token);
       
+      // Test the API configuration first
+      console.log('API Configuration test:', {
+        API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'Not set',
+        isDevelopment: import.meta.env.DEV,
+        NODE_ENV: process.env.NODE_ENV,
+        endpoints: {
+          health: API_ENDPOINTS.HEALTH,
+          students: API_ENDPOINTS.STUDENTS
+        }
+      });
+      
       const healthData = await getHealth();
       console.log('Health check data:', healthData);
       
