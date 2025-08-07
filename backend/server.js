@@ -21,7 +21,8 @@ const allowedOrigins = [
   'https://student-attendance-tracker-1-n2l2.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://student-attendance-tracker-git-main-kiruthikbairavans-projects.vercel.app' // <-- Added new Vercel deployment
+  'https://student-attendance-tracker-git-main-kiruthikbairavans-projects.vercel.app', // <-- Added new Vercel deployment
+  'https://student-attendance-tracke-git-d42d1a-kiruthikbairavans-projects.vercel.app' // <-- Added new Vercel deployment
 ];
 
 console.log('🚀 Allowed CORS origins:', allowedOrigins);
