@@ -15,34 +15,42 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 // Create Express app
 const app = express();
 
-// CORS Configuration - Automatically allow all origins in development, restrict in production
+// CORS Configuration - Allow requests from your Vercel frontend
 const allowedOrigins = [
+  'https://student-attendance-tracker-uvbz.vercel.app', // Your new Vercel URL
   'https://student-attendance-tracker-gilt.vercel.app',
   'https://student-attendance-tracker-1-n2l2.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://student-attendance-tracker-git-main-kiruthikbairavans-projects.vercel.app', // <-- Added new Vercel deployment
-  'https://student-attendance-tracke-git-d42d1a-kiruthikbairavans-projects.vercel.app' // <-- Added new Vercel deployment
+  'https://student-attendance-tracker-git-main-kiruthikbairavans-projects.vercel.app',
+  'https://student-attendance-tracke-git-d42d1a-kiruthikbairavans-projects.vercel.app'
 ];
 
 console.log('🚀 Allowed CORS origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // In development, allow all origins
     if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
-    if (!origin) return callback(null, true);
+    
+    // In production, check against allowed origins
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.log('❌ CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS: ' + origin));
     }
   },
-  credentials: true,
+  credentials: true, // if you're using cookies or sessions
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

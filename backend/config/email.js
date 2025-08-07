@@ -54,7 +54,7 @@ const emailTemplates = {
           </ul>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" 
+            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-uvbz.vercel.app'}" 
                style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               Access Dashboard
             </a>
@@ -93,7 +93,7 @@ const emailTemplates = {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}" 
+            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-uvbz.vercel.app'}/reset-password?token=${resetToken}" 
                style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               Reset Password
             </a>
@@ -176,7 +176,7 @@ const emailTemplates = {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" 
+            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-uvbz.vercel.app'}" 
                style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               🏠 Access Dashboard
             </a>
