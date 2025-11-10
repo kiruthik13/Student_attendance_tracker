@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FaGraduationCap, FaUsers, FaCalendarCheck, FaChartBar, FaSignOutAlt, FaUserPlus, FaClipboardList, FaChartLine, FaPlus, FaList, FaUserGraduate, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 import { MdDashboard, MdSchool, MdAssessment } from 'react-icons/md';
@@ -11,7 +12,8 @@ import { API_ENDPOINTS } from '../../config/api';
 import { getStudents, getAttendanceToday, getHealth } from '../../utils/api';
 import './Dashboard.css';
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ onLogout }) => {
+  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,12 +35,12 @@ const AdminDashboard = () => {
     if (!token) {
       console.error('No authentication token found');
       toast.error('Please login to access the dashboard');
-      window.location.href = '/login';
+      navigate('/login', { replace: true });
       return;
     }
     
     fetchDashboardStats();
-  }, []);
+  }, [navigate]);
 
   const fetchDashboardStats = async () => {
     try {
@@ -222,7 +224,11 @@ const AdminDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('admin');
-    window.location.href = '/login';
+    localStorage.removeItem('adminId');
+    if (typeof onLogout === 'function') {
+      onLogout();
+    }
+    navigate('/login', { replace: true });
   };
 
   const refreshDashboard = () => {
