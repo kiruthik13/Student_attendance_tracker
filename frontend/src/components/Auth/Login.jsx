@@ -78,7 +78,7 @@ const Login = () => {
         
         // Simulate redirect delay
         setTimeout(() => {
-          window.location.href = '/dashboard';
+          navigate('/dashboard', { replace: true });
         }, 1500);
       } else {
         setErrors({ general: data.message || 'Login failed. Please try again.' });
