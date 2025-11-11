@@ -169,6 +169,60 @@ router.post('/login', validateAdminLogin, async (req, res) => {
 
     console.log('Login successful for admin:', admin._id);
 
+    // Send login notification email immediately (but don't block response)
+    (async () => {
+      try {
+        console.log('🚀 Starting login email process for:', email);
+        
+        const loginTime = new Date().toLocaleString('en-IN', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZoneName: 'short'
+        });
+        
+        // Get IP address from request
+        const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Unknown';
+        
+        console.log('📧 ===== LOGIN EMAIL PROCESS STARTED =====');
+        console.log('📧 Recipient:', email);
+        console.log('📧 Admin Name:', admin.fullName);
+        console.log('📧 Login Time:', loginTime);
+        console.log('📧 IP Address:', ipAddress);
+        
+        const emailResult = await sendEmail(
+          email, 
+          'loginEmail', 
+          [admin.fullName, email, loginTime, ipAddress]
+        );
+        
+        if (emailResult && emailResult.success) {
+          console.log('✅ ===== LOGIN EMAIL SENT SUCCESSFULLY =====');
+          console.log('✅ To:', email);
+          console.log('✅ Message ID:', emailResult.messageId);
+          console.log('✅ Response:', emailResult.response);
+        } else {
+          console.error('❌ ===== LOGIN EMAIL FAILED =====');
+          console.error('❌ To:', email);
+          console.error('❌ Error:', emailResult ? emailResult.error : 'Unknown error');
+          console.error('❌ Error Code:', emailResult ? emailResult.code : 'N/A');
+          console.error('❌ Error Command:', emailResult ? emailResult.command : 'N/A');
+        }
+      } catch (emailError) {
+        console.error('❌ ===== LOGIN EMAIL EXCEPTION =====');
+        console.error('❌ To:', email);
+        console.error('❌ Exception Message:', emailError.message);
+        console.error('❌ Exception Stack:', emailError.stack);
+        console.error('❌ Full Exception:', emailError);
+      }
+    })().catch(err => {
+      console.error('❌ ===== UNHANDLED EMAIL ERROR =====');
+      console.error('❌ Error:', err);
+    });
+
     res.json({
       message: 'Login successful',
       token,
@@ -420,8 +474,8 @@ router.post('/test-email', async (req, res) => {
       });
     }
 
-    console.log('Testing email functionality...');
-    console.log('Email config:', {
+    console.log('🧪 Testing email functionality...');
+    console.log('🧪 Email config:', {
       user: process.env.EMAIL_USER ? 'Set' : 'Not set',
       password: process.env.EMAIL_PASSWORD ? 'Set' : 'Not set'
     });
@@ -431,18 +485,71 @@ router.post('/test-email', async (req, res) => {
     if (emailResult.success) {
       res.json({
         message: 'Test email sent successfully!',
-        messageId: emailResult.messageId
+        messageId: emailResult.messageId,
+        response: emailResult.response
       });
     } else {
       res.status(500).json({
         message: 'Failed to send test email',
-        error: emailResult.error
+        error: emailResult.error,
+        code: emailResult.code,
+        command: emailResult.command
       });
     }
   } catch (error) {
     console.error('Test email error:', error);
     res.status(500).json({
       message: 'Test email failed',
+      error: error.message
+    });
+  }
+});
+
+// Test login email endpoint
+router.post('/test-login-email', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    
+    if (!email || !name) {
+      return res.status(400).json({
+        message: 'Email and name are required'
+      });
+    }
+
+    console.log('🧪 Testing login email functionality...');
+    
+    const loginTime = new Date().toLocaleString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    });
+    
+    const ipAddress = '127.0.0.1'; // Test IP
+    
+    const emailResult = await sendEmail(email, 'loginEmail', [name, email, loginTime, ipAddress]);
+    
+    if (emailResult.success) {
+      res.json({
+        message: 'Test login email sent successfully!',
+        messageId: emailResult.messageId,
+        response: emailResult.response
+      });
+    } else {
+      res.status(500).json({
+        message: 'Failed to send test login email',
+        error: emailResult.error,
+        code: emailResult.code,
+        command: emailResult.command
+      });
+    }
+  } catch (error) {
+    console.error('Test login email error:', error);
+    res.status(500).json({
+      message: 'Test login email failed',
       error: error.message
     });
   }

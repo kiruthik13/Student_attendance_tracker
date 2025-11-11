@@ -1,14 +1,41 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter for Gmail
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail',
+// Create transporter for Gmail with retry mechanism
+const createTransporter = (usePort587 = true) => {
+  // Use explicit SMTP configuration
+  // Port 587 (STARTTLS) is more reliable than 465 (SSL) in many network environments
+  const emailUser = process.env.EMAIL_USER || 'kiruthikbairavan13@gmail.com';
+  const emailPass = process.env.EMAIL_PASSWORD || 'ytduxlufdwyfvlcm';
+  
+  const port = usePort587 ? 587 : 465;
+  const secure = !usePort587;
+  
+  const config = {
+    host: 'smtp.gmail.com',
+    port: port,
+    secure: secure, // true for 465 (SSL), false for 587 (STARTTLS)
     auth: {
-      user: 'kiruthikbairavan13@gmail.com',
-      pass: 'edxykxakcnqznmyb' // NO spaces
-    }
-  });
+      user: emailUser,
+      pass: emailPass
+    },
+    tls: {
+      // Do not fail on invalid certs
+      rejectUnauthorized: false,
+      // Use TLS 1.2 or higher
+      minVersion: 'TLSv1.2'
+    },
+    // Connection timeout settings (in milliseconds) - increased for slow networks
+    connectionTimeout: 20000, // 20 seconds
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
+    // Disable keepalive to avoid connection issues
+    pool: false,
+    // Require TLS
+    requireTLS: usePort587
+  };
+  
+  console.log(`📧 Creating transporter with port ${config.port} (secure: ${config.secure}, requireTLS: ${config.requireTLS})`);
+  return nodemailer.createTransport(config);
 };
 
 // Email templates
@@ -54,7 +81,7 @@ const emailTemplates = {
           </ul>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-uvbz.vercel.app'}" 
+            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-3.onrender.com'}" 
                style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               Access Dashboard
             </a>
@@ -62,6 +89,62 @@ const emailTemplates = {
           
           <p style="color: #6b7280; font-size: 14px; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
             If you have any questions or need assistance, please contact the system administrator.
+          </p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px;">
+          <p>© 2024 Kongu Engineering College. All rights reserved.</p>
+        </div>
+      </div>
+    `
+  }),
+  
+  loginEmail: (adminName, email, loginTime, ipAddress) => ({
+    subject: 'Login Notification - Kongu Engineering College Attendance System',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
+        <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 25%, #6366f1 50%, #8b5cf6 75%, #a855f7 100%); padding: 30px; border-radius: 15px; text-align: center; margin-bottom: 20px;">
+          <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold;">KONGU ENGINEERING COLLEGE</h1>
+          <p style="color: #fbbf24; margin: 5px 0; font-weight: bold;">(Autonomous)</p>
+          <p style="color: #e2e8f0; margin: 5px 0; font-size: 14px;">Affiliated to Anna University | Accredited by NAAC with A++ Grade</p>
+          <p style="color: #cbd5e1; margin: 5px 0; font-size: 12px;">Perundurai Erode - 638060 Tamilnadu India</p>
+        </div>
+        
+        <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <h2 style="color: #1e40af; margin-bottom: 20px;">🔐 Login Notification</h2>
+          
+          <p style="color: #374151; line-height: 1.6; margin-bottom: 20px;">
+            Dear <strong>${adminName}</strong>,
+          </p>
+          
+          <p style="color: #374151; line-height: 1.6; margin-bottom: 20px;">
+            We detected a successful login to your Attendance Management System account. If this was you, no action is needed.
+          </p>
+          
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3 style="color: #1e40af; margin-top: 0;">📋 Login Details:</h3>
+            <p style="margin: 5px 0;"><strong>👤 Account:</strong> ${adminName}</p>
+            <p style="margin: 5px 0;"><strong>📧 Email:</strong> ${email}</p>
+            <p style="margin: 5px 0;"><strong>🕐 Login Time:</strong> ${loginTime}</p>
+            ${ipAddress ? `<p style="margin: 5px 0;"><strong>🌐 IP Address:</strong> ${ipAddress}</p>` : ''}
+            <p style="margin: 5px 0;"><strong>✅ Status:</strong> <span style="color: #059669; font-weight: bold;">Successful</span></p>
+          </div>
+          
+          <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <p style="color: #856404; margin: 0; font-size: 14px;">
+              <strong>⚠️ Security Notice:</strong> If you did not perform this login, please change your password immediately and contact the system administrator.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-3.onrender.com'}" 
+               style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+              Access Dashboard
+            </a>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+            This is an automated security notification. For security reasons, we notify you of all login activities on your account.
           </p>
         </div>
         
@@ -93,7 +176,7 @@ const emailTemplates = {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-uvbz.vercel.app'}/reset-password?token=${resetToken}" 
+            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-3.onrender.com'}/reset-password?token=${resetToken}" 
                style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               Reset Password
             </a>
@@ -176,7 +259,7 @@ const emailTemplates = {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-uvbz.vercel.app'}" 
+            <a href="${process.env.FRONTEND_URL || 'https://student-attendance-tracker-3.onrender.com'}" 
                style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               🏠 Access Dashboard
             </a>
@@ -217,16 +300,33 @@ const emailTemplates = {
 // Send email function
 const sendEmail = async (to, template, data = []) => {
   try {
-    const transporter = createTransporter();
-    console.log('Email template data:', { to, template, data });
-    const emailContent = emailTemplates[template](...data);
-    console.log('Generated email content:', {
-      subject: emailContent.subject,
-      hasHtml: !!emailContent.html,
-      htmlLength: emailContent.html ? emailContent.html.length : 0,
-      hasAttachments: !!emailContent.attachments
-    });
+    console.log('📧 ===== Email Sending Process Started =====');
+    console.log('📧 To:', to);
+    console.log('📧 Template:', template);
+    console.log('📧 Data:', data);
     
+    // Check if template exists
+    if (!emailTemplates[template]) {
+      console.error('❌ Email template not found:', template);
+      console.error('❌ Available templates:', Object.keys(emailTemplates));
+      return { success: false, error: `Template '${template}' not found` };
+    }
+    
+    // Generate email content first
+    console.log('📧 Generating email content from template...');
+    const emailContent = emailTemplates[template](...data);
+    
+    if (!emailContent || !emailContent.subject || !emailContent.html) {
+      console.error('❌ Invalid email content generated');
+      return { success: false, error: 'Invalid email content' };
+    }
+    
+    console.log('✅ Email content generated successfully');
+    console.log('📧 Subject:', emailContent.subject);
+    console.log('📧 HTML length:', emailContent.html ? emailContent.html.length : 0);
+    console.log('📧 Has attachments:', !!emailContent.attachments);
+    
+    // Prepare mail options
     const mailOptions = {
       from: `"Kongu Engineering College" <kiruthikbairavan13@gmail.com>`,
       to: to,
@@ -237,14 +337,76 @@ const sendEmail = async (to, template, data = []) => {
     // Add attachments if present
     if (emailContent.attachments) {
       mailOptions.attachments = emailContent.attachments;
+      console.log('📧 Attachments added:', emailContent.attachments.length);
     }
     
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    // Try sending with port 587 first (more reliable), then fallback to 465
+    let lastError = null;
+    const ports = [587, 465];
+    
+    for (const port of ports) {
+      try {
+        const usePort587 = port === 587;
+        console.log(`📧 Attempting to send email using port ${port}...`);
+        const transporter = createTransporter(usePort587);
+        
+        // Send email directly without verification (verification can timeout)
+        console.log('📧 Sending email via transporter...');
+        const info = await Promise.race([
+          transporter.sendMail(mailOptions),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Email send timeout after 20 seconds')), 20000)
+          )
+        ]);
+        
+        console.log('✅ ===== Email Sent Successfully =====');
+        console.log('✅ Port used:', port);
+        console.log('✅ Message ID:', info.messageId);
+        console.log('✅ Response:', info.response);
+        
+        // Close transporter
+        if (transporter.close) {
+          transporter.close();
+        }
+        
+        return { success: true, messageId: info.messageId, response: info.response, port: port };
+      } catch (error) {
+        lastError = error;
+        console.log(`⚠️ Failed with port ${port}, error:`, error.message);
+        console.log(`⚠️ Error code:`, error.code);
+        
+        // If it's a timeout or connection error, try the other port
+        if (error.code === 'ESOCKET' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
+          if (port === 587) {
+            console.log('🔄 Retrying with port 465 (SSL)...');
+            continue; // Try next port
+          } else {
+            console.log('❌ Both ports failed, giving up');
+            break;
+          }
+        } else {
+          // For authentication or other errors, don't retry
+          console.log('❌ Non-connection error, not retrying');
+          throw error;
+        }
+      }
+    }
+    
+    // If we get here, both ports failed
+    throw lastError || new Error('All email ports failed');
   } catch (error) {
-    console.error('Email sending failed:', error);
-    return { success: false, error: error.message };
+    console.error('❌ ===== Email Sending Failed =====');
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error command:', error.command);
+    console.error('❌ Full error:', error);
+    
+    return { 
+      success: false, 
+      error: error.message,
+      code: error.code,
+      command: error.command
+    };
   }
 };
 
