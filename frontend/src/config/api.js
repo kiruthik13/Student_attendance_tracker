@@ -2,7 +2,7 @@
 const isDevelopment = import.meta.env.DEV;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (isDevelopment
   ? 'http://localhost:5000'
-  : 'https://student-attendance-tracker-ycmy.onrender.com');
+  : 'https://student-attendance-tracker-5.onrender.com');
 
 console.log('API Configuration:', {
   isDevelopment,
