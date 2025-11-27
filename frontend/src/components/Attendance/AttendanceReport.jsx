@@ -1755,12 +1755,12 @@ const AttendanceReport = () => {
         </div>
       )}
 
-      {reports.length > 0 && (
+      {reports.length > 0 && reportType === 'student' && (
         <div className="report-table-container">
           <h3>
-            Detailed Report - {selectedStudentDetails?.fullName || 'Student'} 
-            ({selectedStudentDetails?.rollNumber || 'N/A'}) 
-            ({new Date().toLocaleDateString()})
+            Detailed Report - {selectedStudentDetails?.fullName || reports[0]?.studentName || reports[0]?.student?.fullName || 'Student'} 
+            ({selectedStudentDetails?.rollNumber || reports[0]?.rollNumber || reports[0]?.student?.rollNumber || 'N/A'}) 
+            {startDate && endDate ? `(${startDate} to ${endDate})` : `(${new Date().toLocaleDateString()})`}
           </h3>
           <table className="report-table">
             <thead>
@@ -1775,21 +1775,25 @@ const AttendanceReport = () => {
               </tr>
             </thead>
             <tbody>
-              {reports.map((record, idx) => (
-                <tr key={`${record.studentId || idx}-${record.date}-${record.period}`}>
-                  <td>{record.rollNumber || '-'}</td>
-                  <td>{record.studentName || '-'}</td>
-                  <td>{`P${record.period} (${getPeriodTime(record.period)})`}</td>
-                  <td>
-                    <span className={`status-badge ${record.status}`}>
-                      {record.status === 'not-marked' ? 'Not Marked' : record.status}
-                    </span>
-                  </td>
-                  <td>{record.session || '-'}</td>
-                  <td>{record.date || '-'}</td>
-                  <td>{record.remarks || '-'}</td>
+              {reports.map((record, idx) => {
+                const period = record.period || record.periodNumber || null;
+                const periodDisplay = period ? `P${period} (${getPeriodTime(period)})` : '-';
+                return (
+                  <tr key={`${record.studentId || idx}-${record.date}-${period || idx}`}>
+                    <td>{record.rollNumber || record.student?.rollNumber || '-'}</td>
+                    <td>{record.studentName || record.student?.fullName || record.fullName || '-'}</td>
+                    <td>{periodDisplay}</td>
+                    <td>
+                      <span className={`status-badge ${record.status || 'not-marked'}`}>
+                        {record.status === 'not-marked' || !record.status ? 'Not Marked' : record.status}
+                      </span>
+                    </td>
+                    <td>{record.session || '-'}</td>
+                    <td>{record.date ? (typeof record.date === 'string' ? record.date : new Date(record.date).toLocaleDateString('en-GB')) : '-'}</td>
+                    <td>{record.remarks || '-'}</td>
                   </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

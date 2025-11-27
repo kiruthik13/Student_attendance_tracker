@@ -17,8 +17,9 @@ const app = express();
 
 // CORS Configuration - Allow requests from your Vercel frontend
 const allowedOrigins = [
-  'https://student-attendance-tracker-uvbz.vercel.app', // Your new Vercel URL
-  'https://student-attendance-tracker-gilt.vercel.app',
+  'https://student-attendance-tracker-gilt.vercel.app', // Main Vercel deployment
+  'https://student-attendance-tracker-uvbz.vercel.app',
+  'https://student-attendance-tracker-4.onrender.com', // Render backend
   'https://student-attendance-tracker-1-n2l2.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
@@ -113,6 +114,6 @@ const PORT = config.port;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📱 Frontend URL: ${config.frontendUrl}`);
-  console.log(`🔗 API URL: https://student-attendance-tracker-1-n2l2.onrender.com`);
-  console.log(`🏥 Health check: https://student-attendance-tracker-1-n2l2.onrender.com/api/health`);
+  console.log(`🔗 API URL: ${config.apiUrl}`);
+  console.log(`🏥 Health check: ${config.apiUrl}/api/health`);
 }); 

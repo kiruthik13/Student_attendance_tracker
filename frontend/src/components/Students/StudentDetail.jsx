@@ -22,7 +22,7 @@ const StudentDetail = ({ student, onClose, onEdit }) => {
             <button className="edit-btn" onClick={() => onEdit(student)}>
               <FaEdit /> Edit
             </button>
-            <button className="close-btn" onClick={onClose}>
+            <button className="close-btn detail-close-btn" onClick={onClose} aria-label="Close student details">
               <FaTimes />
             </button>
           </div>
@@ -122,6 +122,7 @@ const StudentDetail = ({ student, onClose, onEdit }) => {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

@@ -6,10 +6,10 @@ const createTransporter = (usePort587 = true) => {
   // Port 587 (STARTTLS) is more reliable than 465 (SSL) in many network environments
   const emailUser = process.env.EMAIL_USER || 'kiruthikbairavan13@gmail.com';
   const emailPass = process.env.EMAIL_PASSWORD || 'ytduxlufdwyfvlcm';
-  
+
   const port = usePort587 ? 587 : 465;
   const secure = !usePort587;
-  
+
   const config = {
     host: 'smtp.gmail.com',
     port: port,
@@ -25,15 +25,15 @@ const createTransporter = (usePort587 = true) => {
       minVersion: 'TLSv1.2'
     },
     // Connection timeout settings (in milliseconds) - increased for slow networks
-    connectionTimeout: 20000, // 20 seconds
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
+    connectionTimeout: 60000, // 60 seconds
+    greetingTimeout: 60000,
+    socketTimeout: 60000,
     // Disable keepalive to avoid connection issues
     pool: false,
     // Require TLS
     requireTLS: usePort587
   };
-  
+
   console.log(`📧 Creating transporter with port ${config.port} (secure: ${config.secure}, requireTLS: ${config.requireTLS})`);
   return nodemailer.createTransport(config);
 };
@@ -98,7 +98,7 @@ const emailTemplates = {
       </div>
     `
   }),
-  
+
   loginEmail: (adminName, email, loginTime, ipAddress) => ({
     subject: 'Login Notification - Kongu Engineering College Attendance System',
     html: `
@@ -154,7 +154,7 @@ const emailTemplates = {
       </div>
     `
   }),
-  
+
   passwordResetEmail: (adminName, resetToken) => ({
     subject: 'Password Reset Request - Kongu Engineering College',
     html: `
@@ -193,17 +193,17 @@ const emailTemplates = {
       </div>
     `
   }),
-  
+
   csvReportEmail: (subject, csvContent, fileName, reportType, reportData) => {
-    const currentDate = new Date().toLocaleString('en-IN', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric', 
-      hour: '2-digit', 
+    const currentDate = new Date().toLocaleString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     });
-    
+
     const totalRecords = reportData.rows ? reportData.rows.length : 'N/A';
     const className = reportData.className || '';
     const section = reportData.section || '';
@@ -211,7 +211,7 @@ const emailTemplates = {
     const startDate = reportData.startDate || '';
     const endDate = reportData.endDate || '';
     const studentName = reportData.studentName || '';
-    
+
     // Build dynamic content based on report type
     let reportDetails = '';
     if (className) reportDetails += `<p style="margin: 8px 0;"><strong>🏫 Class:</strong> ${className}</p>`;
@@ -219,7 +219,7 @@ const emailTemplates = {
     if (date) reportDetails += `<p style="margin: 8px 0;"><strong>📅 Date:</strong> ${date}</p>`;
     if (startDate && endDate) reportDetails += `<p style="margin: 8px 0;"><strong>📅 Period:</strong> ${startDate} to ${endDate}</p>`;
     if (studentName) reportDetails += `<p style="margin: 8px 0;"><strong>👤 Student:</strong> ${studentName}</p>`;
-    
+
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
         <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 25%, #6366f1 50%, #8b5cf6 75%, #a855f7 100%); padding: 30px; border-radius: 15px; text-align: center; margin-bottom: 20px;">
@@ -282,7 +282,7 @@ const emailTemplates = {
         </div>
       </div>
     `;
-    
+
     return {
       subject: subject,
       html: htmlContent,
@@ -304,28 +304,28 @@ const sendEmail = async (to, template, data = []) => {
     console.log('📧 To:', to);
     console.log('📧 Template:', template);
     console.log('📧 Data:', data);
-    
+
     // Check if template exists
     if (!emailTemplates[template]) {
       console.error('❌ Email template not found:', template);
       console.error('❌ Available templates:', Object.keys(emailTemplates));
       return { success: false, error: `Template '${template}' not found` };
     }
-    
+
     // Generate email content first
     console.log('📧 Generating email content from template...');
     const emailContent = emailTemplates[template](...data);
-    
+
     if (!emailContent || !emailContent.subject || !emailContent.html) {
       console.error('❌ Invalid email content generated');
       return { success: false, error: 'Invalid email content' };
     }
-    
+
     console.log('✅ Email content generated successfully');
     console.log('📧 Subject:', emailContent.subject);
     console.log('📧 HTML length:', emailContent.html ? emailContent.html.length : 0);
     console.log('📧 Has attachments:', !!emailContent.attachments);
-    
+
     // Prepare mail options
     const mailOptions = {
       from: `"Kongu Engineering College" <kiruthikbairavan13@gmail.com>`,
@@ -333,48 +333,48 @@ const sendEmail = async (to, template, data = []) => {
       subject: emailContent.subject,
       html: emailContent.html
     };
-    
+
     // Add attachments if present
     if (emailContent.attachments) {
       mailOptions.attachments = emailContent.attachments;
       console.log('📧 Attachments added:', emailContent.attachments.length);
     }
-    
+
     // Try sending with port 587 first (more reliable), then fallback to 465
     let lastError = null;
     const ports = [587, 465];
-    
+
     for (const port of ports) {
       try {
         const usePort587 = port === 587;
         console.log(`📧 Attempting to send email using port ${port}...`);
         const transporter = createTransporter(usePort587);
-        
+
         // Send email directly without verification (verification can timeout)
         console.log('📧 Sending email via transporter...');
         const info = await Promise.race([
           transporter.sendMail(mailOptions),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Email send timeout after 20 seconds')), 20000)
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Email send timeout after 60 seconds')), 60000)
           )
         ]);
-        
+
         console.log('✅ ===== Email Sent Successfully =====');
         console.log('✅ Port used:', port);
         console.log('✅ Message ID:', info.messageId);
         console.log('✅ Response:', info.response);
-        
+
         // Close transporter
         if (transporter.close) {
           transporter.close();
         }
-        
+
         return { success: true, messageId: info.messageId, response: info.response, port: port };
       } catch (error) {
         lastError = error;
         console.log(`⚠️ Failed with port ${port}, error:`, error.message);
         console.log(`⚠️ Error code:`, error.code);
-        
+
         // If it's a timeout or connection error, try the other port
         if (error.code === 'ESOCKET' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
           if (port === 587) {
@@ -391,7 +391,7 @@ const sendEmail = async (to, template, data = []) => {
         }
       }
     }
-    
+
     // If we get here, both ports failed
     throw lastError || new Error('All email ports failed');
   } catch (error) {
@@ -400,9 +400,9 @@ const sendEmail = async (to, template, data = []) => {
     console.error('❌ Error code:', error.code);
     console.error('❌ Error command:', error.command);
     console.error('❌ Full error:', error);
-    
-    return { 
-      success: false, 
+
+    return {
+      success: false,
       error: error.message,
       code: error.code,
       command: error.command

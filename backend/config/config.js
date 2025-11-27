@@ -13,9 +13,9 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   
   // Frontend URL (for CORS)
-  frontendUrl: process.env.FRONTEND_URL || 'https://student-attendance-tracker-uvbz.vercel.app',
+  frontendUrl: process.env.FRONTEND_URL || 'https://student-attendance-tracker-gilt.vercel.app',
   // API URL (for logs or other use)
-  apiUrl: process.env.API_URL || 'https://student-attendance-tracker-1-n2l2.onrender.com',
+  apiUrl: process.env.API_URL || 'https://student-attendance-tracker-4.onrender.com',
   
   // Security
   bcryptSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12
