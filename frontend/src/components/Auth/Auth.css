@@ -34,7 +34,7 @@
   backdrop-filter: blur(20px);
   border-radius: var(--radius-2xl);
   padding: var(--space-8);
-  box-shadow: 
+  box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.25),
     0 0 0 1px rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -67,7 +67,7 @@
   padding: var(--space-5);
   background: linear-gradient(135deg, #1e40af 0%, #3b82f6 25%, #6366f1 50%, #8b5cf6 75%, #a855f7 100%);
   border-radius: var(--radius-2xl);
-  box-shadow: 
+  box-shadow:
     0 20px 40px -12px rgba(30, 64, 175, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
@@ -94,7 +94,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 
+  box-shadow:
     0 10px 25px -5px rgba(0, 0, 0, 0.2),
     0 0 0 1px rgba(255, 255, 255, 0.8),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -106,7 +106,7 @@
 
 .college-logo:hover {
   transform: scale(1.05);
-  box-shadow: 
+  box-shadow:
     0 15px 35px -10px rgba(0, 0, 0, 0.3),
     0 0 0 1px rgba(255, 255, 255, 0.9),
     inset 0 1px 0 rgba(255, 255, 255, 1);
@@ -235,7 +235,7 @@
 .form-input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 
+  box-shadow:
     0 0 0 3px rgba(102, 126, 234, 0.1),
     0 4px 12px rgba(102, 126, 234, 0.15);
   transform: translateY(-2px);
@@ -260,7 +260,7 @@
   transition: var(--transition-fast);
 }
 
-.form-input:focus + .input-icon {
+.form-input:focus+.input-icon {
   color: var(--primary-color);
 }
 
@@ -451,9 +451,12 @@
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px) rotate(0deg);
   }
+
   50% {
     transform: translateY(-20px) rotate(180deg);
   }
@@ -475,56 +478,56 @@
   .auth-container {
     padding: var(--space-3);
   }
-  
+
   .auth-form {
     padding: var(--space-6);
   }
-  
+
   .auth-title {
     font-size: 1.75rem;
   }
-  
+
   .college-logo-section {
     flex-direction: column;
     text-align: center;
     gap: var(--space-3);
   }
-  
+
   .college-info {
     text-align: center;
   }
-  
+
   .college-name {
     font-size: 1.1rem;
   }
-  
+
   .college-subtitle {
     font-size: 0.8rem;
   }
-  
+
   .college-details {
     font-size: 0.7rem;
   }
-  
+
   .college-address {
     font-size: 0.65rem;
   }
-  
+
   .college-logo {
     width: 60px;
     height: 60px;
   }
-  
+
   .college-logo svg {
     width: 30px;
     height: 30px;
   }
-  
+
   .auth-logo {
     width: 60px;
     height: 60px;
   }
-  
+
   .auth-logo svg {
     width: 30px;
     height: 30px;
@@ -537,31 +540,80 @@
     background: rgba(17, 24, 39, 0.95);
     color: var(--white);
   }
-  
+
   .form-input {
     background: var(--gray-800);
     color: var(--white);
     border-color: var(--gray-600);
   }
-  
+
   .form-input:focus {
     border-color: var(--primary-color);
   }
-  
+
   .auth-title {
     color: var(--white);
   }
-  
+
   .form-label {
     color: var(--gray-300);
   }
 }
 
 @keyframes shimmer {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(-100%);
   }
+
   50% {
     transform: translateX(100%);
   }
-} 
+}
+
+/* Role Selector Styles */
+.role-selector {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.role-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+}
+
+.role-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+  color: #334155;
+}
+
+.role-btn.active {
+  background: white;
+  color: #2563eb;
+  /* Primary Blue */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  font-weight: 600;
+}
+
+.role-btn svg {
+  font-size: 1.1em;
+}

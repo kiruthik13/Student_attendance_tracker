@@ -5,7 +5,8 @@ const crypto = require('crypto');
 const Admin = require('../models/Admin');
 const config = require('../config/config');
 const { sendEmail } = require('../config/email');
-const { authenticateToken, requireActiveAdmin } = require('../middleware/auth');
+const adminStudentController = require('../controllers/adminStudentController');
+const { authenticateAdmin, requireActiveAdmin } = require('../middleware/auth');
 const {
   validateAdminRegistration,
   validateAdminLogin,
@@ -38,7 +39,7 @@ const generateResetToken = () => {
 router.post('/register', validateAdminRegistration, async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
-    
+
     console.log('Registration attempt:', { fullName, email });
 
     // Check if admin already exists
@@ -68,9 +69,9 @@ router.post('/register', validateAdminRegistration, async (req, res) => {
         user: process.env.EMAIL_USER ? 'Set' : 'Not set',
         password: process.env.EMAIL_PASSWORD ? 'Set' : 'Not set'
       });
-      
+
       const emailResult = await sendEmail(email, 'welcomeEmail', [fullName, email]);
-      
+
       if (emailResult.success) {
         console.log('Welcome email sent successfully to:', email);
         console.log('Message ID:', emailResult.messageId);
@@ -99,7 +100,7 @@ router.post('/register', validateAdminRegistration, async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
-    
+
     // Handle duplicate key error
     if (error.code === 11000) {
       return res.status(400).json({
@@ -127,7 +128,7 @@ router.post('/register', validateAdminRegistration, async (req, res) => {
 router.post('/login', validateAdminLogin, async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     console.log('Login attempt for email:', email);
 
     // Find admin by email
@@ -173,7 +174,7 @@ router.post('/login', validateAdminLogin, async (req, res) => {
     (async () => {
       try {
         console.log('🚀 Starting login email process for:', email);
-        
+
         const loginTime = new Date().toLocaleString('en-IN', {
           year: 'numeric',
           month: 'long',
@@ -183,22 +184,22 @@ router.post('/login', validateAdminLogin, async (req, res) => {
           second: '2-digit',
           timeZoneName: 'short'
         });
-        
+
         // Get IP address from request
         const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Unknown';
-        
+
         console.log('📧 ===== LOGIN EMAIL PROCESS STARTED =====');
         console.log('📧 Recipient:', email);
         console.log('📧 Admin Name:', admin.fullName);
         console.log('📧 Login Time:', loginTime);
         console.log('📧 IP Address:', ipAddress);
-        
+
         const emailResult = await sendEmail(
-          email, 
-          'loginEmail', 
+          email,
+          'loginEmail',
           [admin.fullName, email, loginTime, ipAddress]
         );
-        
+
         if (emailResult && emailResult.success) {
           console.log('✅ ===== LOGIN EMAIL SENT SUCCESSFULLY =====');
           console.log('✅ To:', email);
@@ -242,7 +243,7 @@ router.post('/login', validateAdminLogin, async (req, res) => {
 router.post('/forgot-password', validatePasswordResetRequest, async (req, res) => {
   try {
     const { email } = req.body;
-    
+
     console.log('Password reset request for email:', email);
 
     // Find admin by email
@@ -303,7 +304,7 @@ router.post('/forgot-password', validatePasswordResetRequest, async (req, res) =
 router.post('/reset-password', validatePasswordReset, async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-    
+
     console.log('Password reset attempt with token');
 
     // Find reset token
@@ -353,7 +354,7 @@ router.post('/reset-password', validatePasswordReset, async (req, res) => {
 });
 
 // GET /api/admin/profile - Get admin profile (protected route)
-router.get('/profile', authenticateToken, requireActiveAdmin, async (req, res) => {
+router.get('/profile', authenticateAdmin, requireActiveAdmin, async (req, res) => {
   try {
     res.json({
       admin: req.admin
@@ -367,7 +368,7 @@ router.get('/profile', authenticateToken, requireActiveAdmin, async (req, res) =
 });
 
 // PUT /api/admin/profile - Update admin profile (protected route)
-router.put('/profile', authenticateToken, requireActiveAdmin, validateProfileUpdate, async (req, res) => {
+router.put('/profile', authenticateAdmin, requireActiveAdmin, validateProfileUpdate, async (req, res) => {
   try {
     const { fullName, email } = req.body;
     const updateData = {};
@@ -375,11 +376,11 @@ router.put('/profile', authenticateToken, requireActiveAdmin, validateProfileUpd
     if (fullName) updateData.fullName = fullName;
     if (email) {
       // Check if email is already taken by another admin
-      const existingAdmin = await Admin.findOne({ 
-        email: email.toLowerCase(), 
-        _id: { $ne: req.admin._id } 
+      const existingAdmin = await Admin.findOne({
+        email: email.toLowerCase(),
+        _id: { $ne: req.admin._id }
       });
-      
+
       if (existingAdmin) {
         return res.status(400).json({
           message: 'Email is already taken by another admin'
@@ -401,7 +402,7 @@ router.put('/profile', authenticateToken, requireActiveAdmin, validateProfileUpd
 
   } catch (error) {
     console.error('Update profile error:', error);
-    
+
     if (error.code === 11000) {
       return res.status(400).json({
         message: 'Email is already taken by another admin'
@@ -415,13 +416,13 @@ router.put('/profile', authenticateToken, requireActiveAdmin, validateProfileUpd
 });
 
 // PUT /api/admin/change-password - Change password (protected route)
-router.put('/change-password', authenticateToken, requireActiveAdmin, validatePasswordUpdate, async (req, res) => {
+router.put('/change-password', authenticateAdmin, requireActiveAdmin, validatePasswordUpdate, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
     // Get admin with password
     const admin = await Admin.findById(req.admin._id);
-    
+
     // Verify current password
     const isCurrentPasswordValid = await admin.comparePassword(currentPassword);
     if (!isCurrentPasswordValid) {
@@ -447,7 +448,7 @@ router.put('/change-password', authenticateToken, requireActiveAdmin, validatePa
 });
 
 // POST /api/admin/logout - Logout (client-side token removal)
-router.post('/logout', authenticateToken, (req, res) => {
+router.post('/logout', authenticateAdmin, (req, res) => {
   // Note: JWT tokens are stateless, so we just return success
   // The client should remove the token from storage
   res.json({
@@ -456,7 +457,7 @@ router.post('/logout', authenticateToken, (req, res) => {
 });
 
 // GET /api/admin/verify-token - Verify token validity
-router.get('/verify-token', authenticateToken, requireActiveAdmin, (req, res) => {
+router.get('/verify-token', authenticateAdmin, requireActiveAdmin, (req, res) => {
   res.json({
     message: 'Token is valid',
     admin: req.admin
@@ -467,7 +468,7 @@ router.get('/verify-token', authenticateToken, requireActiveAdmin, (req, res) =>
 router.post('/test-email', async (req, res) => {
   try {
     const { email, name } = req.body;
-    
+
     if (!email || !name) {
       return res.status(400).json({
         message: 'Email and name are required'
@@ -481,7 +482,7 @@ router.post('/test-email', async (req, res) => {
     });
 
     const emailResult = await sendEmail(email, 'welcomeEmail', [name, email]);
-    
+
     if (emailResult.success) {
       res.json({
         message: 'Test email sent successfully!',
@@ -509,7 +510,7 @@ router.post('/test-email', async (req, res) => {
 router.post('/test-login-email', async (req, res) => {
   try {
     const { email, name } = req.body;
-    
+
     if (!email || !name) {
       return res.status(400).json({
         message: 'Email and name are required'
@@ -517,7 +518,7 @@ router.post('/test-login-email', async (req, res) => {
     }
 
     console.log('🧪 Testing login email functionality...');
-    
+
     const loginTime = new Date().toLocaleString('en-IN', {
       year: 'numeric',
       month: 'long',
@@ -527,11 +528,11 @@ router.post('/test-login-email', async (req, res) => {
       second: '2-digit',
       timeZoneName: 'short'
     });
-    
+
     const ipAddress = '127.0.0.1'; // Test IP
-    
+
     const emailResult = await sendEmail(email, 'loginEmail', [name, email, loginTime, ipAddress]);
-    
+
     if (emailResult.success) {
       res.json({
         message: 'Test login email sent successfully!',
@@ -559,30 +560,30 @@ router.post('/test-login-email', async (req, res) => {
 router.get('/test', async (req, res) => {
   try {
     console.log('Testing database connection...');
-    
+
     // Test database connection
     const dbState = mongoose.connection.readyState;
     console.log('Database connection state:', dbState);
-    
+
     // Test creating a document
     const testAdmin = new Admin({
       fullName: 'Test Admin',
       email: 'test@example.com',
       password: 'testpassword123'
     });
-    
+
     console.log('Attempting to save test admin...');
     const savedTestAdmin = await testAdmin.save();
     console.log('Test admin saved successfully:', savedTestAdmin._id);
-    
+
     // Test finding the document
     const foundAdmin = await Admin.findById(savedTestAdmin._id);
     console.log('Test admin found:', foundAdmin ? 'Yes' : 'No');
-    
+
     // Clean up - delete test document
     await Admin.findByIdAndDelete(savedTestAdmin._id);
     console.log('Test admin deleted successfully');
-    
+
     res.json({
       message: 'Database test successful',
       connectionState: dbState,
@@ -592,7 +593,7 @@ router.get('/test', async (req, res) => {
         delete: 'Success'
       }
     });
-    
+
   } catch (error) {
     console.error('Database test error:', error);
     res.status(500).json({
@@ -602,5 +603,17 @@ router.get('/test', async (req, res) => {
     });
   }
 });
+
+
+// Student Classes and Sections
+router.get('/classes/list', authenticateAdmin, requireActiveAdmin, adminStudentController.getClasses);
+router.get('/sections/list', authenticateAdmin, requireActiveAdmin, adminStudentController.getSections);
+
+// Student Management Routes
+router.post('/students', authenticateAdmin, requireActiveAdmin, adminStudentController.createStudent);
+router.get('/students', authenticateAdmin, requireActiveAdmin, adminStudentController.getAllStudents);
+router.get('/students/:id', authenticateAdmin, requireActiveAdmin, adminStudentController.getStudentById);
+router.put('/students/:id', authenticateAdmin, requireActiveAdmin, adminStudentController.updateStudent);
+router.delete('/students/:id', authenticateAdmin, requireActiveAdmin, adminStudentController.deleteStudent);
 
 module.exports = router; 

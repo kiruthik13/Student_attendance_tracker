@@ -12,7 +12,17 @@ console.log('API Configuration:', {
 });
 
 export const API_ENDPOINTS = {
-  // Admin endpoints
+  // Auth
+  LOGIN: `${API_BASE_URL}/api/auth/login`,
+  REGISTER: `${API_BASE_URL}/api/auth/register`,
+
+  // Student endpoints
+  STUDENT_DASHBOARD: `${API_BASE_URL}/api/student/dashboard`,
+  STUDENT_ATTENDANCE: `${API_BASE_URL}/api/student/attendance`,
+  STUDENT_MARKS: `${API_BASE_URL}/api/student/marks`,
+  STUDENT_PROFILE: `${API_BASE_URL}/api/student/profile`,
+
+  // Admin endpoints (Legacy/Specific)
   ADMIN_LOGIN: `${API_BASE_URL}/api/admin/login`,
   ADMIN_REGISTER: `${API_BASE_URL}/api/admin/register`,
   ADMIN_PROFILE: `${API_BASE_URL}/api/admin/profile`,
@@ -20,9 +30,9 @@ export const API_ENDPOINTS = {
   ADMIN_RESET_PASSWORD: `${API_BASE_URL}/api/admin/reset-password`,
 
   // Student endpoints
-  STUDENTS: `${API_BASE_URL}/api/students`,
-  STUDENT_CLASSES: `${API_BASE_URL}/api/students/classes/list`,
-  STUDENT_SECTIONS: `${API_BASE_URL}/api/students/sections/list`,
+  STUDENTS: `${API_BASE_URL}/api/admin/students`,
+  STUDENT_CLASSES: `${API_BASE_URL}/api/admin/classes/list`,
+  STUDENT_SECTIONS: `${API_BASE_URL}/api/admin/sections/list`,
 
   // Attendance endpoints
   ATTENDANCE_MARK: `${API_BASE_URL}/api/attendance/mark`,
@@ -37,9 +47,16 @@ export const API_ENDPOINTS = {
   ATTENDANCE_DEBUG: `${API_BASE_URL}/api/attendance/debug-attendance`,
   ATTENDANCE_STUDENT: `${API_BASE_URL}/api/attendance/student`,
 
+  // Subject endpoints
+  SUBJECTS: `${API_BASE_URL}/api/subjects`,
+
+  // Marks endpoints
+  MARKS: `${API_BASE_URL}/api/marks`,
+  MARKS_BULK: `${API_BASE_URL}/api/marks/bulk`,
+
   // Health check
   HEALTH: `${API_BASE_URL}/api/health`,
   ATTENDANCE_HEALTH: `${API_BASE_URL}/api/attendance/health`
 };
 
-export default API_BASE_URL; 
+export default API_BASE_URL;

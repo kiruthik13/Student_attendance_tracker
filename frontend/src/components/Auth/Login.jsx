@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FaGraduationCap, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaGraduationCap, FaLock, FaEye, FaEyeSlash, FaUserShield, FaUserGraduate } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
 import { API_ENDPOINTS } from '../../config/api';
 import './Auth.css';
@@ -10,7 +10,8 @@ const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
-    password: ''
+    password: '',
+    role: 'student' // Default role
   });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -23,14 +24,17 @@ const Login = () => {
       ...prev,
       [name]: value
     }));
-    
-    // Clear error when user starts typing
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
       }));
     }
+  };
+
+  const handleRoleChange = (role) => {
+    setFormData(prev => ({ ...prev, role }));
   };
 
   const validateForm = () => {
@@ -54,19 +58,26 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setIsLoading(true);
     setSuccessMessage('');
 
-          try {
-        const response = await fetch(API_ENDPOINTS.ADMIN_LOGIN, {
+    try {
+      const endpoint = formData.role === 'admin'
+        ? API_ENDPOINTS.ADMIN_LOGIN
+        : API_ENDPOINTS.LOGIN;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        }),
       });
 
       const data = await response.json();
@@ -74,17 +85,30 @@ const Login = () => {
       if (response.ok) {
         setSuccessMessage('Login successful! Redirecting...');
         localStorage.setItem('token', data.token);
-        localStorage.setItem('adminId', data.adminId);
-        
-        // Simulate redirect delay
+
+        // Handle different response structures
+        if (formData.role === 'admin') {
+          localStorage.setItem('admin', JSON.stringify(data.admin));
+          // Admin login endpoint returns data.admin
+          localStorage.setItem('user', JSON.stringify({ ...data.admin, role: 'admin' }));
+          localStorage.setItem('adminId', data.admin._id); // Needed for some legacy checks?
+        } else {
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+
         setTimeout(() => {
-          navigate('/dashboard', { replace: true });
+          if (formData.role === 'admin') {
+            navigate('/dashboard', { replace: true });
+          } else {
+            navigate('/student/dashboard', { replace: true });
+          }
         }, 1500);
       } else {
         setErrors({ general: data.message || 'Login failed. Please try again.' });
       }
     } catch (error) {
       setErrors({ general: 'Network error. Please check your connection.' });
+      console.error('Login error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +120,7 @@ const Login = () => {
       <div className="floating-element"></div>
       <div className="floating-element"></div>
       <div className="floating-element"></div>
-      
+
       <div className="auth-form-container">
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-header">
@@ -128,6 +152,24 @@ const Login = () => {
               {successMessage}
             </div>
           )}
+
+          {/* Role Selection */}
+          <div className="role-selector">
+            <button
+              type="button"
+              className={`role-btn ${formData.role === 'student' ? 'active' : ''}`}
+              onClick={() => handleRoleChange('student')}
+            >
+              <FaUserGraduate /> Student
+            </button>
+            <button
+              type="button"
+              className={`role-btn ${formData.role === 'admin' ? 'active' : ''}`}
+              onClick={() => handleRoleChange('admin')}
+            >
+              <FaUserShield /> Admin
+            </button>
+          </div>
 
           <div className="form-group">
             <label className="form-label" htmlFor="email">
@@ -208,7 +250,7 @@ const Login = () => {
             ) : (
               <>
                 <FaLock />
-                Sign In
+                Sign In as {formData.role === 'admin' ? 'Admin' : 'Student'}
               </>
             )}
           </button>
@@ -240,4 +282,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;

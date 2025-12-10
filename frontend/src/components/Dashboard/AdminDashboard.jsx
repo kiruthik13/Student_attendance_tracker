@@ -8,6 +8,9 @@ import StudentForm from '../Students/StudentForm';
 import StudentDetail from '../Students/StudentDetail';
 import AttendanceMarking from '../Attendance/AttendanceMarking';
 import AttendanceReport from '../Attendance/AttendanceReport';
+import SubjectManagementPage from '../Marks/SubjectManagementPage';
+import MarksEntryPage from '../Marks/MarksEntryPage';
+import ConsolidatedMarksPage from '../Marks/ConsolidatedMarksPage';
 import { API_ENDPOINTS } from '../../config/api';
 import { getStudents, getAttendanceToday, getHealth } from '../../utils/api';
 import './Dashboard.css';
@@ -38,15 +41,22 @@ const AdminDashboard = ({ onLogout }) => {
       navigate('/login', { replace: true });
       return;
     }
-    
+
+    // Handle Routing based on URL
+    const path = window.location.pathname;
+    if (path.includes('/subjects')) setCurrentView('subjects');
+    else if (path.includes('/marks-entry')) setCurrentView('marks-entry');
+    else if (path.includes('/marks-consolidated')) setCurrentView('marks-consolidated');
+    // else default or keep current
+
     fetchDashboardStats();
-  }, [navigate]);
+  }, [navigate, window.location.pathname]);
 
   const fetchDashboardStats = async () => {
     try {
       setIsLoading(true);
       const token = localStorage.getItem('token');
-      
+
       if (!token) {
         console.error('No token found');
         toast.error('Authentication required. Please login again.');
@@ -55,13 +65,13 @@ const AdminDashboard = ({ onLogout }) => {
       }
 
       console.log('Fetching dashboard stats using fallback method');
-      
+
       // Test API connection first
       await testAPIConnection();
-      
+
       // Use the fallback method directly since the new endpoint isn't working
       await fetchDashboardStatsFallback();
-      
+
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       toast.error('Failed to load dashboard statistics: ' + error.message);
@@ -75,7 +85,7 @@ const AdminDashboard = ({ onLogout }) => {
       console.log('Testing API connection...');
       const token = localStorage.getItem('token');
       console.log('Token available:', !!token);
-      
+
       // Test the API configuration first
       console.log('API Configuration test:', {
         API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'Not set',
@@ -86,10 +96,10 @@ const AdminDashboard = ({ onLogout }) => {
           students: API_ENDPOINTS.STUDENTS
         }
       });
-      
+
       const healthData = await getHealth();
       console.log('Health check data:', healthData);
-      
+
     } catch (error) {
       console.error('API connection test failed:', error);
       toast.error('Cannot connect to backend server. Please check your internet connection.');
@@ -103,7 +113,7 @@ const AdminDashboard = ({ onLogout }) => {
         students: API_ENDPOINTS.STUDENTS,
         attendance: API_ENDPOINTS.ATTENDANCE_TODAY
       });
-      
+
       const [studentsData, attendanceData] = await Promise.all([
         getStudents(),
         getAttendanceToday()
@@ -118,7 +128,7 @@ const AdminDashboard = ({ onLogout }) => {
       // Filter for today's attendance only
       const today = new Date();
       const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-      
+
       const todayAttendanceRecords = allAttendanceRecords.filter(record => {
         const recordDate = new Date(record.date);
         const recordDateString = recordDate.toISOString().split('T')[0];
@@ -139,7 +149,7 @@ const AdminDashboard = ({ onLogout }) => {
 
       // Create a map of student attendance for today only
       const studentAttendanceMap = {};
-      
+
       todayAttendanceRecords.forEach(record => {
         const studentId = record.student?._id || record.student;
         if (!studentAttendanceMap[studentId]) {
@@ -178,11 +188,11 @@ const AdminDashboard = ({ onLogout }) => {
       studentsData.students.forEach(student => {
         const studentId = student._id;
         const studentData = studentAttendanceMap[studentId];
-        
+
         if (studentData && studentData.hasAnyAttendance) {
           totalPresentPeriods += studentData.presentPeriods;
           totalMarkedPeriods += studentData.totalPeriods;
-          
+
           // A student is considered present if they have at least one present period today
           if (studentData.presentPeriods > 0) {
             presentStudents++;
@@ -195,8 +205,8 @@ const AdminDashboard = ({ onLogout }) => {
       });
 
       // Calculate attendance rate for today
-      const attendanceRate = totalMarkedPeriods > 0 
-        ? Math.round((totalPresentPeriods / totalMarkedPeriods) * 100) 
+      const attendanceRate = totalMarkedPeriods > 0
+        ? Math.round((totalPresentPeriods / totalMarkedPeriods) * 100)
         : 0;
 
       const statsData = {
@@ -214,7 +224,7 @@ const AdminDashboard = ({ onLogout }) => {
       setStats(statsData);
       setLast7Days([]);
       setLastUpdated(new Date().toISOString());
-      
+
     } catch (error) {
       console.error('Fallback dashboard stats error:', error);
       toast.error('Failed to load dashboard data: ' + error.message);
@@ -245,12 +255,25 @@ const AdminDashboard = ({ onLogout }) => {
     });
   };
 
+  const handleNavigation = (viewId) => {
+    setCurrentView(viewId);
+    // Optional: Sync URL
+    if (viewId === 'subjects') navigate('/admin/subjects');
+    else if (viewId === 'marks-entry') navigate('/admin/marks-entry');
+    else if (viewId === 'marks-consolidated') navigate('/admin/marks-consolidated');
+    // For others, maybe keep at /dashboard or specific routes if needed.
+    // But for now, we only enforcing the new routes.
+  };
+
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <MdDashboard /> },
     { id: 'students', label: 'Students', icon: <FaUsers /> },
     { id: 'add-student', label: 'Add Student', icon: <FaUserPlus /> },
     { id: 'attendance', label: 'Mark Attendance', icon: <FaCalendarCheck /> },
     { id: 'reports', label: 'Reports', icon: <MdAssessment /> },
+    { id: 'subjects', label: 'Subjects', icon: <FaList /> },
+    { id: 'marks-entry', label: 'Enter Marks', icon: <FaClipboardList /> },
+    { id: 'marks-consolidated', label: 'Consolidated View', icon: <FaChartLine /> },
   ];
 
   const renderContent = () => {
@@ -266,8 +289,8 @@ const AdminDashboard = ({ onLogout }) => {
                 {lastUpdated && (
                   <p className="last-updated">Last updated: {new Date(lastUpdated).toLocaleString()}</p>
                 )}
-                <button 
-                  className="refresh-btn" 
+                <button
+                  className="refresh-btn"
                   onClick={refreshDashboard}
                   disabled={isLoading}
                 >
@@ -381,6 +404,20 @@ const AdminDashboard = ({ onLogout }) => {
                 >
                   <FaChartBar />
                   View Reports
+                </button>
+                <button
+                  className="action-button"
+                  onClick={() => handleNavigation('subjects')}
+                >
+                  <FaList />
+                  Manage Subjects
+                </button>
+                <button
+                  className="action-button"
+                  onClick={() => handleNavigation('marks-entry')}
+                >
+                  <FaClipboardList />
+                  Enter Marks
                 </button>
               </div>
             </div>
@@ -563,6 +600,27 @@ const AdminDashboard = ({ onLogout }) => {
           </div>
         );
 
+      case 'subjects':
+        return (
+          <div className="main-content">
+            <SubjectManagementPage />
+          </div>
+        );
+
+      case 'marks-entry':
+        return (
+          <div className="main-content">
+            <MarksEntryPage />
+          </div>
+        );
+
+      case 'marks-consolidated':
+        return (
+          <div className="main-content">
+            <ConsolidatedMarksPage />
+          </div>
+        );
+
       default:
         return null;
     }
@@ -599,7 +657,7 @@ const AdminDashboard = ({ onLogout }) => {
               <li key={item.id} className="nav-item">
                 <button
                   className={`nav-link ${currentView === item.id ? 'active' : ''}`}
-                  onClick={() => setCurrentView(item.id)}
+                  onClick={() => handleNavigation(item.id)}
                 >
                   <span className="nav-icon">{item.icon}</span>
                   {item.label}

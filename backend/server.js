@@ -11,6 +11,8 @@ dotenv.config();
 const adminRoutes = require('./routes/adminRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
+const subjectRoutes = require('./routes/subjectRoutes');
+const markRoutes = require('./routes/markRoutes');
 
 // Create Express app
 const app = express();
@@ -33,12 +35,12 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     // In development, allow all origins
     if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
-    
+
     // In production, check against allowed origins
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -58,7 +60,10 @@ app.use(express.urlencoded({ extended: true }));
 // Database connection
 const connectDB = async () => {
   try {
-    await mongoose.connect(config.mongoUri);
+    await mongoose.connect(config.mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
     console.log('✅ Connected to MongoDB successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
@@ -72,7 +77,7 @@ connectDB();
 
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'CORS is working!',
     allowedOrigins,
     requestOrigin: req.headers.origin,
@@ -82,13 +87,18 @@ app.get('/api/cors-test', (req, res) => {
 
 // Routes
 app.use('/api/admin', adminRoutes);
-app.use('/api/students', studentRoutes);
+app.use('/api/students', studentRoutes); // This was existing, keeping it or should I use api/student? user asked for /student/...
+// User requested /student/attendance etc. I'll map /api/student to studentRoutes.
+app.use('/api/student', studentRoutes); // New routes: /dashboard, /attendance, /marks
+app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/subjects', subjectRoutes);
+app.use('/api/marks', markRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'Student Attendance Tracker API is running',
     database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
     timestamp: new Date().toISOString()
@@ -98,7 +108,7 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     message: 'Internal server error',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });

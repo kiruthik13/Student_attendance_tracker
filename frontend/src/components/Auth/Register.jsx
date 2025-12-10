@@ -12,7 +12,8 @@ const Register = () => {
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    role: 'student'
   });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +27,7 @@ const Register = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -78,22 +79,23 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setIsLoading(true);
     setSuccessMessage('');
 
-          try {
-        const response = await fetch(API_ENDPOINTS.ADMIN_REGISTER, {
+    try {
+      const response = await fetch(API_ENDPOINTS.REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          fullName: formData.name, // <-- changed from 'name' to 'fullName'
+          fullName: formData.name,
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          role: formData.role
         }),
       });
 
@@ -107,7 +109,7 @@ const Register = () => {
           password: '',
           confirmPassword: ''
         });
-        
+
         // Auto switch to login after 2 seconds
         setTimeout(() => {
           navigate('/login');
@@ -130,7 +132,7 @@ const Register = () => {
       <div className="floating-element"></div>
       <div className="floating-element"></div>
       <div className="floating-element"></div>
-      
+
       <div className="auth-form-container">
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-header">
@@ -162,6 +164,39 @@ const Register = () => {
               {successMessage}
             </div>
           )}
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="role">
+              I am a...
+            </label>
+            <div style={{ position: 'relative' }}>
+              <select
+                id="role"
+                name="role"
+                className="form-input"
+                value={formData.role}
+                onChange={handleChange}
+                style={{ appearance: 'none', cursor: 'pointer' }}
+              >
+                <option value="student">Student</option>
+                <option value="admin">Admin</option>
+              </select>
+              <FaUser className="input-icon" />
+              <div
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                  color: 'var(--gray-400)',
+                  fontSize: '0.8rem'
+                }}
+              >
+                ▼
+              </div>
+            </div>
+          </div>
 
           <div className="form-group">
             <label className="form-label" htmlFor="name">
@@ -252,7 +287,7 @@ const Register = () => {
                 {errors.password}
               </div>
             )}
-            
+
             {formData.password && (
               <div className="password-requirements">
                 <div className="requirements-title">Password Requirements:</div>
