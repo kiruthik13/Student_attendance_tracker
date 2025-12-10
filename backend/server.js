@@ -19,9 +19,11 @@ const app = express();
 
 // CORS Configuration - Allow requests from your Vercel frontend
 const allowedOrigins = [
-  'https://student-attendance-tracker-gilt.vercel.app', // Main Vercel deployment
+  'https://attendance-kiruthik.vercel.app', // New Vercel Deployment
+  'https://student-attendance-tracker-w227.onrender.com', // New Render Backend
+  'https://student-attendance-tracker-gilt.vercel.app', // Old Main Vercel deployment
   'https://student-attendance-tracker-uvbz.vercel.app',
-  'https://student-attendance-tracker-4.onrender.com', // Render backend
+  'https://student-attendance-tracker-4.onrender.com', // Old Render backend
   'https://student-attendance-tracker-1-n2l2.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',

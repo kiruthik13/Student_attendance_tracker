@@ -13,9 +13,9 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
 
   // Frontend URL (for CORS)
-  frontendUrl: process.env.FRONTEND_URL || 'https://student-attendance-tracker-gilt.vercel.app',
+  frontendUrl: process.env.FRONTEND_URL || 'https://attendance-kiruthik.vercel.app',
   // API URL (for logs or other use)
-  apiUrl: process.env.API_URL || 'https://student-attendance-tracker-4.onrender.com',
+  apiUrl: process.env.API_URL || 'https://student-attendance-tracker-w227.onrender.com',
 
   // Email Configuration
   emailUser: process.env.EMAIL_USER || 'kiruthikbairavan13@gmail.com',
