@@ -65,9 +65,9 @@ const Login = () => {
     setSuccessMessage('');
 
     try {
-      const endpoint = formData.role === 'admin'
-        ? API_ENDPOINTS.ADMIN_LOGIN
-        : API_ENDPOINTS.LOGIN;
+      // Always use the unified auth login endpoint
+      // This works for both Students and Admins (who are Users with role='admin')
+      const endpoint = API_ENDPOINTS.LOGIN;
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -86,23 +86,33 @@ const Login = () => {
         setSuccessMessage('Login successful! Redirecting...');
         localStorage.setItem('token', data.token);
 
-        // Handle different response structures
-        if (formData.role === 'admin') {
-          localStorage.setItem('admin', JSON.stringify(data.admin));
-          // Admin login endpoint returns data.admin
-          localStorage.setItem('user', JSON.stringify({ ...data.admin, role: 'admin' }));
-          localStorage.setItem('adminId', data.admin._id); // Needed for some legacy checks?
-        } else {
-          localStorage.setItem('user', JSON.stringify(data.user));
+        // Get user data
+        const user = data.user;
+
+        // Verify role matches
+        if (formData.role !== user.role) {
+          // Optional: You could block login if roles don't match, 
+          // but for now let's just warn or allow if they are admin
+          console.warn(`Warning: Login role ${formData.role} does not match user role ${user.role}`);
         }
 
-        setTimeout(() => {
-          if (formData.role === 'admin') {
+        if (user.role === 'admin') {
+          // Store as admin for backward compatibility with Admin Dashboard
+          localStorage.setItem('admin', JSON.stringify(user));
+          localStorage.setItem('user', JSON.stringify(user));
+          localStorage.setItem('adminId', user.id || user._id);
+
+          setTimeout(() => {
             navigate('/dashboard', { replace: true });
-          } else {
+          }, 1500);
+        } else {
+          // Student login
+          localStorage.setItem('user', JSON.stringify(user));
+
+          setTimeout(() => {
             navigate('/student/dashboard', { replace: true });
-          }
-        }, 1500);
+          }, 1500);
+        }
       } else {
         setErrors({ general: data.message || 'Login failed. Please try again.' });
       }
