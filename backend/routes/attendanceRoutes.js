@@ -25,12 +25,146 @@ router.get('/dashboard-stats', authenticateAdmin, requireActiveAdmin, async (req
 
 // POST /api/attendance/mark - Mark attendance for a single student
 router.post('/mark', authenticateAdmin, requireActiveAdmin, validateAttendanceMarking, async (req, res) => {
-  // ...
+  try {
+    const { student, date, status, remarks, session, period } = req.body;
+
+    const attendanceDate = new Date(date);
+    attendanceDate.setHours(0, 0, 0, 0);
+
+    // Find or create attendance record for this student and date
+    let attendance = await Attendance.findOne({
+      student,
+      date: attendanceDate
+    });
+
+    if (!attendance) {
+      attendance = new Attendance({
+        student,
+        date: attendanceDate,
+        markedBy: req.admin._id,
+        forenoon: { periods: [] },
+        afternoon: { periods: [] }
+      });
+    }
+
+    // Determine target array based on period
+    const targetArray = period <= 4 ? attendance.forenoon.periods : attendance.afternoon.periods;
+
+    // Check if period already marked
+    const existingPeriodIndex = targetArray.findIndex(p => p.period === period);
+
+    if (existingPeriodIndex >= 0) {
+      // Update existing
+      targetArray[existingPeriodIndex].status = status;
+      targetArray[existingPeriodIndex].remarks = remarks || '';
+    } else {
+      // Add new
+      targetArray.push({
+        period,
+        status,
+        remarks: remarks || ''
+      });
+    }
+
+    attendance.markedBy = req.admin._id;
+    attendance.updatedAt = new Date(); // Update timestamp
+
+    await attendance.save();
+
+    res.status(200).json({
+      message: 'Attendance marked successfully',
+      attendance
+    });
+
+  } catch (error) {
+    console.error('Mark attendance error:', error);
+    res.status(500).json({ message: 'Failed to mark attendance' });
+  }
 });
 
 // POST /api/attendance/bulk-mark - Mark attendance for multiple students
 router.post('/bulk-mark', authenticateAdmin, requireActiveAdmin, validateBulkAttendance, async (req, res) => {
-  // ...
+  try {
+    const { date, attendanceData } = req.body;
+
+    const attendanceDate = new Date(date);
+    attendanceDate.setHours(0, 0, 0, 0);
+
+    const updates = [];
+    const errors = [];
+
+    // Group updates by student to minimize DB queries
+    const studentUpdates = {};
+
+    attendanceData.forEach(item => {
+      if (!studentUpdates[item.student]) {
+        studentUpdates[item.student] = [];
+      }
+      studentUpdates[item.student].push(item);
+    });
+
+    // Process each student
+    for (const studentId of Object.keys(studentUpdates)) {
+      try {
+        let attendance = await Attendance.findOne({
+          student: studentId,
+          date: attendanceDate
+        });
+
+        if (!attendance) {
+          attendance = new Attendance({
+            student: studentId,
+            date: attendanceDate,
+            markedBy: req.admin._id,
+            forenoon: { periods: [] },
+            afternoon: { periods: [] }
+          });
+        }
+
+        const studentItems = studentUpdates[studentId];
+
+        studentItems.forEach(item => {
+          const period = Number(item.period);
+          const status = item.status;
+          const remarks = item.remarks;
+
+          const targetArray = period <= 4 ? attendance.forenoon.periods : attendance.afternoon.periods;
+          const existingPeriodIndex = targetArray.findIndex(p => p.period === period);
+
+          if (existingPeriodIndex >= 0) {
+            targetArray[existingPeriodIndex].status = status;
+            targetArray[existingPeriodIndex].remarks = remarks || '';
+          } else {
+            targetArray.push({
+              period,
+              status,
+              remarks: remarks || ''
+            });
+          }
+        });
+
+        attendance.markedBy = req.admin._id;
+        attendance.updatedAt = new Date();
+        await attendance.save();
+        updates.push(attendance._id);
+
+      } catch (err) {
+        console.error(`Error updating student ${studentId}:`, err);
+        errors.push({ student: studentId, error: err.message });
+      }
+    }
+
+    res.json({
+      message: 'Bulk attendance marking completed',
+      updatedCount: updates.length,
+      errorCount: errors.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (error) {
+    console.error('Bulk mark error:', error);
+    res.status(500).json({ message: 'Failed to bulk mark attendance' });
+  }
 });
 
 // GET /api/attendance/student/:studentId - Get attendance for a specific student
@@ -88,13 +222,16 @@ router.get('/class', authenticateAdmin, requireActiveAdmin, async (req, res) => 
           if ([1, 2, 3, 4].includes(period)) {
             const forenoonPeriod = studentAttendance.forenoon.periods.find(p => p.period === period);
             periodStatus[`period${period}`] = forenoonPeriod ? forenoonPeriod.status : 'not-marked';
+            periodStatus[`period${period}Remarks`] = forenoonPeriod ? forenoonPeriod.remarks || '' : '';
           } else {
             // Check afternoon periods (5-7)
             const afternoonPeriod = studentAttendance.afternoon.periods.find(p => p.period === period);
             periodStatus[`period${period}`] = afternoonPeriod ? afternoonPeriod.status : 'not-marked';
+            periodStatus[`period${period}Remarks`] = afternoonPeriod ? afternoonPeriod.remarks || '' : '';
           }
         } else {
           periodStatus[`period${period}`] = 'not-marked';
+          periodStatus[`period${period}Remarks`] = '';
         }
       });
 

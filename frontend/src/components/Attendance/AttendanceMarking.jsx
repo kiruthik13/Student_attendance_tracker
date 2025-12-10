@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { API_ENDPOINTS } from '../../config/api';
 import { getStudentClasses, getStudentSections, getStudents } from '../../utils/api';
 
-const allPeriods = [1,2,3,4,5,6,7];
+const allPeriods = [1, 2, 3, 4, 5, 6, 7];
 const periodLabels = {
   1: '8:45-9:35 am', 2: '9:35-10:25 am', 3: '10:45-11:35 am', 4: '11:35 am-12:25 pm',
   5: '1:25-2:15 pm', 6: '2:15-3:05 pm', 7: '3:25-4:15 pm'
@@ -43,41 +43,75 @@ export default function AttendanceMarking() {
         toast.error('Failed to load classes and sections');
       }
     };
-    
+
     fetchData();
   }, []);
 
   useEffect(() => {
     if (!selectedClass || !selectedSection) return;
     setLoading(true);
-    
+
     const fetchStudents = async () => {
       try {
         const studentsData = await getStudents();
-        const filteredStudents = studentsData.students?.filter(student => 
-          student.className === selectedClass && 
-          student.section === selectedSection && 
+        const filteredStudents = studentsData.students?.filter(student =>
+          student.className === selectedClass &&
+          student.section === selectedSection &&
           student.isActive === true
         ) || [];
-        
+
         setStudents(filteredStudents);
+
+        // Fetch existing attendance for this class/section/date
+        const token = localStorage.getItem('token');
+        const attendanceResponse = await axios.get(API_ENDPOINTS.ATTENDANCE_CLASS, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          params: {
+            className: selectedClass,
+            section: selectedSection,
+            date: selectedDate
+          }
+        });
+
+        const existingAttendance = attendanceResponse.data.attendance || [];
+
         const data = {};
+
         filteredStudents.forEach(student => {
           data[student._id] = {};
+
+          // Find existing record for this student
+          const studentRecord = existingAttendance.find(r => r.studentId === student._id);
+
           allPeriods.forEach(period => {
-            data[student._id][period] = { status: 'present', remarks: '' };
+            let status = 'not-marked'; // Default for UI logic, but we might want to default to 'present' if new?
+            // Actually, if it's "not-marked" from backend, keep it. 
+            // But the UI needs to pick a button. If "not-marked", maybe no button active?
+            // The original code set default to 'present'. Let's stick thereto 'present' ONLY if truly new?
+            // Or better: check if we have data.
+
+            let remarks = '';
+
+            if (studentRecord && studentRecord[`period${period}`] && studentRecord[`period${period}`] !== 'not-marked') {
+              status = studentRecord[`period${period}`];
+              remarks = studentRecord[`period${period}Remarks`] || '';
+            } else {
+              status = 'present'; // Default to present as per original logic for new
+            }
+
+            data[student._id][period] = { status, remarks };
           });
         });
         setAttendanceData(data);
         setSelectedStudent(''); // Reset selected student when class/section changes
       } catch (error) {
-        console.error('Error fetching students:', error);
-        toast.error('Failed to load students');
+        console.error('Error fetching students or attendance:', error);
+        toast.error('Failed to load students or existing attendance');
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchStudents();
   }, [selectedClass, selectedSection]);
 
@@ -150,7 +184,7 @@ export default function AttendanceMarking() {
       console.log('Sending payload with all periods:', payload);
       console.log("attendanceData length:", allAttendanceData.length);
       console.table(allAttendanceData);
-      
+
       // Log each record individually
       allAttendanceData.forEach((record, index) => {
         console.log(`Record ${index + 1}:`, {
@@ -161,7 +195,7 @@ export default function AttendanceMarking() {
         });
       });
 
-              const response = await axios.post(API_ENDPOINTS.ATTENDANCE_BULK_MARK, payload, {
+      const response = await axios.post(API_ENDPOINTS.ATTENDANCE_BULK_MARK, payload, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -180,7 +214,7 @@ export default function AttendanceMarking() {
 
   return (
     <div className="attendance-marking-container">
-        <h2>Mark/Edit Attendance</h2>
+      <h2>Mark/Edit Attendance</h2>
       <form onSubmit={handleSubmit} className="attendance-form">
         <div className="form-controls">
           <div className="control-group">
@@ -214,65 +248,65 @@ export default function AttendanceMarking() {
             </select>
           </div>
         </div>
-            <div className="bulk-actions">
-              <h3>Bulk Actions</h3>
-              <div className="bulk-buttons">
+        <div className="bulk-actions">
+          <h3>Bulk Actions</h3>
+          <div className="bulk-buttons">
             <button type="button" className="bulk-btn present" onClick={() => handleBulkAction('present')}>Mark All Present</button>
             <button type="button" className="bulk-btn absent" onClick={() => handleBulkAction('absent')}>Mark All Absent</button>
             <button type="button" className="bulk-btn late" onClick={() => handleBulkAction('late')}>Mark All Late</button>
             <button type="button" className="bulk-btn half-day" onClick={() => handleBulkAction('half-day')}>Mark All Half-Day</button>
-              </div>
-            </div>
+          </div>
+        </div>
         {loading ? <p>Loading students...</p> : (
-            <div className="attendance-table-container">
-              <table className="attendance-table">
-                <thead>
-                  <tr>
-                    <th>Roll No</th>
-                    <th>Name</th>
+          <div className="attendance-table-container">
+            <table className="attendance-table">
+              <thead>
+                <tr>
+                  <th>Roll No</th>
+                  <th>Name</th>
                   {allPeriods.map(period => (
-                    <th key={period}>P{period}<br/>{periodLabels[period]}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(selectedStudent ? students.filter(s => s._id === selectedStudent) : students).map(student => (
-                      <tr key={student._id}>
-                        <td>{student.rollNumber}</td>
-                        <td>{student.fullName}</td>
+                    <th key={period}>P{period}<br />{periodLabels[period]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(selectedStudent ? students.filter(s => s._id === selectedStudent) : students).map(student => (
+                  <tr key={student._id}>
+                    <td>{student.rollNumber}</td>
+                    <td>{student.fullName}</td>
                     {allPeriods.map(period => (
-                        <td key={period}>
-                          <div className="status-selector">
+                      <td key={period}>
+                        <div className="status-selector">
                           {statusOptions.map(status => (
-                              <button
-                                key={status}
-                                type="button"
+                            <button
+                              key={status}
+                              type="button"
                               className={`status-btn ${attendanceData[student._id]?.[period]?.status === status ? 'active' : ''} ${status}`}
                               onClick={() => handleAttendanceChange(student._id, period, status)}
                             >
-                                {status.charAt(0).toUpperCase() + status.slice(1)}
-                              </button>
-                            ))}
-                          </div>
-                          <input
-                            type="text"
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
                           placeholder="Remark"
-                            value={attendanceData[student._id]?.[period]?.remarks || ''}
+                          value={attendanceData[student._id]?.[period]?.remarks || ''}
                           onChange={e => handleRemarksChange(student._id, period, e.target.value)}
-                            maxLength="200"
-                            style={{ marginTop: 4, width: '90%' }}
-                          />
-                        </td>
-                      ))}
-                      </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-        )}
-            <div className="form-actions">
-          <button type="submit" className="submit-btn">Save Attendance</button>
+                          maxLength="200"
+                          style={{ marginTop: 4, width: '90%' }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        )}
+        <div className="form-actions">
+          <button type="submit" className="submit-btn">Save Attendance</button>
+        </div>
       </form>
     </div>
   );
