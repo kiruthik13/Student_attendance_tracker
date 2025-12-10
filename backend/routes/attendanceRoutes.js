@@ -418,16 +418,33 @@ router.get('/stats/student/:studentId', authenticateAdmin, requireActiveAdmin, a
 });
 
 // GET /api/attendance/today - Get today's attendance for all students
+// GET /api/attendance/today - Get today's attendance for all students
 router.get('/today', authenticateAdmin, requireActiveAdmin, async (req, res) => {
   try {
-    const today = new Date();
+    const { date } = req.query;
+    let today;
+
+    if (date) {
+      // Use provided date
+      today = new Date(date);
+    } else {
+      // Use server today
+      today = new Date();
+    }
+
+    // Reset to midnight
     today.setHours(0, 0, 0, 0);
+
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
+
+    console.log(`Fetching attendance for range: ${today.toISOString()} to ${tomorrow.toISOString()}`);
 
     const attendance = await Attendance.find({
       date: { $gte: today, $lt: tomorrow }
     }).populate('student', 'fullName rollNumber className section');
+
+    console.log(`Found ${attendance.length} records`);
 
     res.json({ attendance });
   } catch (error) {

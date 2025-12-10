@@ -3,13 +3,13 @@ import { API_ENDPOINTS } from '../config/api';
 
 export const apiCall = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  
+
   console.log('API Call:', {
     endpoint,
     token: token ? 'Present' : 'Missing',
     options
   });
-  
+
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -60,7 +60,12 @@ export const apiCall = async (endpoint, options = {}) => {
 export const getStudents = () => apiCall(API_ENDPOINTS.STUDENTS);
 export const getStudentClasses = () => apiCall(API_ENDPOINTS.STUDENT_CLASSES);
 export const getStudentSections = () => apiCall(API_ENDPOINTS.STUDENT_SECTIONS);
-export const getAttendanceToday = () => apiCall(API_ENDPOINTS.ATTENDANCE_TODAY);
+export const getAttendanceToday = (date) => {
+  const url = date
+    ? `${API_ENDPOINTS.ATTENDANCE_TODAY}?date=${date}`
+    : API_ENDPOINTS.ATTENDANCE_TODAY;
+  return apiCall(url);
+};
 export const getHealth = () => apiCall(API_ENDPOINTS.HEALTH);
 export const getStudentAttendance = (studentId, startDate, endDate) => {
   const params = new URLSearchParams({ startDate, endDate });

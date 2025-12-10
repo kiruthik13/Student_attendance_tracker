@@ -114,9 +114,18 @@ const AdminDashboard = ({ onLogout }) => {
         attendance: API_ENDPOINTS.ATTENDANCE_TODAY
       });
 
+      // Filter for today's attendance only
+      const today = new Date();
+      // Ensure we use local YYYY-MM-DD
+      const offset = today.getTimezoneOffset();
+      const localDate = new Date(today.getTime() - (offset * 60 * 1000));
+      const todayString = localDate.toISOString().split('T')[0];
+
+      console.log('Fetching dashboard stats for date:', todayString);
+
       const [studentsData, attendanceData] = await Promise.all([
         getStudents(),
-        getAttendanceToday()
+        getAttendanceToday(todayString)
       ]);
 
       console.log('Students data:', studentsData);
@@ -125,15 +134,8 @@ const AdminDashboard = ({ onLogout }) => {
       const totalStudents = studentsData.students?.length || 0;
       const allAttendanceRecords = attendanceData.attendance || [];
 
-      // Filter for today's attendance only
-      const today = new Date();
-      const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-      const todayAttendanceRecords = allAttendanceRecords.filter(record => {
-        const recordDate = new Date(record.date);
-        const recordDateString = recordDate.toISOString().split('T')[0];
-        return recordDateString === todayString;
-      });
+      // Since backend now filters by the passed date, we can trust the results
+      const todayAttendanceRecords = allAttendanceRecords;
 
       console.log(`Total students: ${totalStudents}`);
       console.log(`Total attendance records: ${allAttendanceRecords.length}`);
