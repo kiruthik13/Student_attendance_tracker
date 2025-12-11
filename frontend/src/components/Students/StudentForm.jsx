@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 import { API_ENDPOINTS } from '../../config/api';
 import './Students.css';
 
@@ -57,12 +58,35 @@ const StudentForm = ({ student, onSave, onCancel }) => {
         response = await axios.put(`${API_ENDPOINTS.STUDENTS}/${student._id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        alert('Student updated successfully');
+        toast.success('✅ Student updated successfully!', {
+          position: "top-right",
+          autoClose: 4000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
       } else {
         response = await axios.post(API_ENDPOINTS.STUDENTS, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        alert('Student created successfully. User account has been created with default password.');
+        toast.success(
+          <div>
+            <strong>🎉 Student Created Successfully!</strong>
+            <p style={{ margin: '8px 0 0 0', fontSize: '0.9em', color: '#ffffff' }}>
+              User account has been created with default password.
+            </p>
+          </div>,
+          {
+            position: "top-right",
+            autoClose: 6000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            closeButton: true,
+          }
+        );
       }
 
       if (onSave) onSave(response.data.student);

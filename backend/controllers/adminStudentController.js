@@ -88,7 +88,7 @@ exports.getAllStudents = async (req, res) => {
             ];
         }
 
-        const students = await Student.find(query).sort({ createdAt: -1 });
+        const students = await Student.find(query).sort({ rollNumber: 1 });
         res.json({ students });
 
     } catch (error) {

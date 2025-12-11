@@ -9,7 +9,7 @@ const AttendanceReport = () => {
   // Period timings mapping
   const periodTimings = {
     1: '8:45-9:35 am',
-    2: '9:35-10:25 am', 
+    2: '9:35-10:25 am',
     3: '10:45-11:35 am',
     4: '11:35 am-12:25 pm',
     5: '1:25-2:15 pm',
@@ -31,29 +31,29 @@ const AttendanceReport = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [dateRangeError, setDateRangeError] = useState('');
-  
+
   // Helper function to validate and fix date range
   const validateDateRange = (start, end) => {
     const startDate = new Date(start);
     const endDate = new Date(end);
-    
+
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return { valid: false, message: 'Invalid date format' };
     }
-    
+
     if (startDate > endDate) {
       return { valid: false, message: 'Start date cannot be after end date' };
     }
-    
+
     return { valid: true };
   };
-  
+
   // Function to swap dates if they're in wrong order
   const fixDateRange = () => {
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (start > end) {
         setStartDate(endDate);
         setEndDate(startDate);
@@ -61,7 +61,7 @@ const AttendanceReport = () => {
       }
     }
   };
-  
+
   // Check date range validity whenever dates change
   useEffect(() => {
     if (startDate && endDate) {
@@ -175,13 +175,13 @@ const AttendanceReport = () => {
   const fetchAttendanceReport = async () => {
     try {
       setLoading(true);
-      
+
       // Validate required fields
       if (!selectedClass || !selectedSection || !selectedDate) {
         toast.error('Please select class, section, and date');
         return;
       }
-      
+
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         className: selectedClass,
@@ -205,20 +205,20 @@ const AttendanceReport = () => {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Attendance report response:', data);
-        
+
         let filtered = data.attendance;
         // Filter to only the selected student if selectedStudent is set
         if (selectedStudent) {
           filtered = filtered.filter(r => r.studentId === selectedStudent);
         }
-        
+
         setReports(filtered);
         setPeriods(data.periods || [1, 2, 3, 4, 5, 6, 7]);
-        
+
         if (filtered.length > 0) {
           toast.success(`Generated report for ${filtered.length} students`);
         } else {
@@ -242,22 +242,22 @@ const AttendanceReport = () => {
   const fetchStudentAttendance = async () => {
     try {
       setLoading(true);
-      
+
       // Validate required fields
       if (!selectedStudent || !startDate || !endDate) {
         toast.error('Please select student, start date, and end date');
         return;
       }
-      
+
       console.log('Fetching student attendance with params:', {
         studentId: selectedStudent,
         startDate,
         endDate
       });
-      
+
       const data = await getStudentAttendance(selectedStudent, startDate, endDate);
       console.log('Student attendance response:', data);
-      
+
       // Get student details from the first attendance record or from students list
       let studentDetails = null;
       if (data.attendance && data.attendance.length > 0) {
@@ -266,7 +266,7 @@ const AttendanceReport = () => {
           studentDetails = firstRecord.student;
         }
       }
-      
+
       // If no student details from attendance, get from students list
       if (!studentDetails) {
         const selectedStudentObj = students.find(s => s._id === selectedStudent);
@@ -274,12 +274,12 @@ const AttendanceReport = () => {
           studentDetails = selectedStudentObj;
         }
       }
-      
+
       setSelectedStudentDetails(studentDetails);
-      
+
       // Process the attendance data to create a proper report format
       const processedReports = [];
-      
+
       if (data.attendance && data.attendance.length > 0) {
         data.attendance.forEach(record => {
           // Ensure proper date formatting
@@ -288,9 +288,9 @@ const AttendanceReport = () => {
             console.warn('Invalid date found:', record.date);
             return; // Skip invalid dates
           }
-          
+
           const date = recordDate.toLocaleDateString('en-GB');
-          
+
           // Process forenoon periods
           if (record.forenoon && record.forenoon.periods) {
             record.forenoon.periods.forEach(period => {
@@ -306,7 +306,7 @@ const AttendanceReport = () => {
               });
             });
           }
-          
+
           // Process afternoon periods
           if (record.afternoon && record.afternoon.periods) {
             record.afternoon.periods.forEach(period => {
@@ -324,16 +324,16 @@ const AttendanceReport = () => {
           }
         });
       }
-      
+
       // If no attendance records found, create entries for the date range showing "not-marked"
       if (processedReports.length === 0) {
         const start = new Date(startDate);
         const end = new Date(endDate);
-        
+
         // Generate entries for each date in the range
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const date = d.toLocaleDateString('en-GB');
-          
+
           // Add entries for all periods (1-7)
           for (let period = 1; period <= 7; period++) {
             const session = period <= 4 ? 'Forenoon' : 'Afternoon';
@@ -343,14 +343,14 @@ const AttendanceReport = () => {
               status: 'not-marked',
               remarks: '-',
               session: session,
-        studentId: selectedStudent,
+              studentId: selectedStudent,
               studentName: studentDetails?.fullName || 'Unknown',
               rollNumber: studentDetails?.rollNumber || '-'
             });
           }
         }
       }
-      
+
       // Sort by date and period
       processedReports.sort((a, b) => {
         const dateA = new Date(a.date.split('/').reverse().join('-'));
@@ -360,15 +360,15 @@ const AttendanceReport = () => {
         }
         return a.period - b.period;
       });
-      
+
       setReports(processedReports);
-      
+
       if (processedReports.length > 0) {
         const markedCount = processedReports.filter(r => r.status !== 'not-marked').length;
         const totalCount = processedReports.length;
         toast.success(`Generated report: ${markedCount} marked out of ${totalCount} total records`);
-        } else {
-          toast.info('No attendance data found for the selected student and date range');
+      } else {
+        toast.info('No attendance data found for the selected student and date range');
       }
     } catch (error) {
       console.error('Error fetching student attendance:', error);
@@ -383,45 +383,45 @@ const AttendanceReport = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      
+
       // Validate required fields
       if (!selectedClass || !selectedSection || !startDate || !endDate) {
         toast.error('Please select class, section, start date, and end date');
         return;
       }
-      
+
       // Validate date range
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         toast.error('Invalid date format');
         return;
       }
-      
+
       if (start > end) {
         toast.error('Start date cannot be after end date. Please select a valid date range.');
         return;
       }
-      
+
       const params = new URLSearchParams({
         className: selectedClass,
         section: selectedSection,
         startDate,
         endDate
       });
-      
+
       console.log('Fetching range report with params:', {
         className: selectedClass,
         section: selectedSection,
         startDate,
         endDate
       });
-      
+
       // Add timeout and retry logic
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
+
       try {
         const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_RANGE_REPORT}?${params}`, {
           headers: {
@@ -430,23 +430,23 @@ const AttendanceReport = () => {
           },
           signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         if (response.ok) {
           const data = await response.json();
           console.log('Range report response:', data);
-          
+
           if (data.report && data.report.length > 0) {
             // Debug: Check if totalAttendance data is present
             const studentsWithTotalAttendance = data.report.filter(r => r.totalAttendance && r.totalAttendance.marked > 0);
             console.log('Students with total attendance data:', studentsWithTotalAttendance.length);
             console.log('Sample student data:', data.report[0]);
             console.log('Overall stats from backend:', data.overallStats);
-            
+
             // Store backend data for comparison
             window.lastRangeReportData = data;
-            
+
             setRangeReport(data.report);
             setRangeDates(data.dates || []);
             setPeriods(data.periods || [1, 2, 3, 4, 5, 6, 7]);
@@ -460,7 +460,7 @@ const AttendanceReport = () => {
         } else {
           const errorData = await response.json().catch(() => ({}));
           console.error('Failed to fetch range report:', response.status, response.statusText, errorData);
-          
+
           if (response.status === 401) {
             toast.error('Authentication failed. Please log in again.');
           } else if (response.status === 500) {
@@ -468,14 +468,14 @@ const AttendanceReport = () => {
           } else {
             toast.error(errorData.message || 'Failed to fetch range report');
           }
-          
+
           setRangeReport([]);
           setRangeDates([]);
           setPeriods([]);
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        
+
         if (fetchError.name === 'AbortError') {
           toast.error('Request timeout. Please try again.');
         } else if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
@@ -483,7 +483,7 @@ const AttendanceReport = () => {
         } else {
           toast.error('Network error. Please try again.');
         }
-        
+
         console.error('Fetch error:', fetchError);
         setRangeReport([]);
         setRangeDates([]);
@@ -505,7 +505,7 @@ const AttendanceReport = () => {
       toast.error('No data available for export');
       return;
     }
-    
+
     const headers = ['Student Name', 'Roll Number', 'Class', 'Section'];
     rangeDates.forEach(date => {
       periods.forEach(period => {
@@ -514,7 +514,7 @@ const AttendanceReport = () => {
     });
     // Add total attendance columns
     headers.push('Total Present Periods', 'Total Marked Periods', 'Total Attendance %');
-    
+
     const rows = rangeReport.map(r => {
       const row = [r.fullName, r.rollNumber, r.className, r.section];
       if (r.attendance) {
@@ -542,13 +542,13 @@ const AttendanceReport = () => {
       }
       return row;
     });
-    
+
     let csvContent = '';
     csvContent += headers.join(',') + '\n';
     rows.forEach(row => {
       csvContent += row.map(field => `"${(field ?? '').toString().replace(/"/g, '""')}"`).join(',') + '\n';
     });
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -566,7 +566,7 @@ const AttendanceReport = () => {
       toast.error('No data available for export');
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
@@ -575,13 +575,13 @@ const AttendanceReport = () => {
         startDate,
         endDate
       });
-      
+
       const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_EXPORT_DATE_RANGE_EXCEL}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         }
       });
-      
+
       if (response.ok) {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
@@ -606,27 +606,27 @@ const AttendanceReport = () => {
   const fetchDateRangeReport = async () => {
     try {
       setLoading(true);
-      
+
       // Validate required fields
       if (!selectedClass || !selectedSection || !startDate || !endDate) {
         toast.error('Please select class, section, start date, and end date');
         return;
       }
-      
+
       // Validate date range
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         toast.error('Invalid date format');
         return;
       }
-      
+
       if (start > end) {
         toast.error('Start date cannot be after end date. Please select a valid date range.');
         return;
       }
-      
+
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         className: selectedClass,
@@ -634,25 +634,25 @@ const AttendanceReport = () => {
         startDate,
         endDate
       });
-      
+
       console.log('Fetching date range report with params:', {
         className: selectedClass,
         section: selectedSection,
         startDate,
         endDate
       });
-      
+
       const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_DATE_RANGE_REPORT}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Date range report response:', data);
-        
+
         if (data.report && data.report.length > 0) {
           setRangeReport(data.report);
           setRangeDates(data.dates || []);
@@ -685,7 +685,7 @@ const AttendanceReport = () => {
         toast.error('Please select class, section, start date, and end date');
         return;
       }
-      
+
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         className: selectedClass,
@@ -693,14 +693,14 @@ const AttendanceReport = () => {
         startDate,
         endDate
       });
-      
+
       const response = await fetch(`${API_ENDPOINTS.ATTENDANCE_DEBUG}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Debug data:', data);
@@ -719,7 +719,7 @@ const AttendanceReport = () => {
   const testConnection = async () => {
     try {
       toast.info('Testing connection to backend...');
-      
+
       // Test basic health endpoint
       const healthResponse = await fetch(`${API_ENDPOINTS.HEALTH}`, {
         method: 'GET',
@@ -727,11 +727,11 @@ const AttendanceReport = () => {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (healthResponse.ok) {
         const healthData = await healthResponse.json();
         console.log('Health check response:', healthData);
-        
+
         // Test attendance health endpoint
         const token = localStorage.getItem('token');
         const attendanceHealthResponse = await fetch(`${API_ENDPOINTS.ATTENDANCE_HEALTH}`, {
@@ -740,7 +740,7 @@ const AttendanceReport = () => {
             'Content-Type': 'application/json'
           }
         });
-        
+
         if (attendanceHealthResponse.ok) {
           const attendanceHealthData = await attendanceHealthResponse.json();
           console.log('Attendance health response:', attendanceHealthData);
@@ -769,14 +769,14 @@ const AttendanceReport = () => {
     };
 
     reports.forEach(record => {
-      const periods = [1,2,3,4,5,6,7];
+      const periods = [1, 2, 3, 4, 5, 6, 7];
       periods.forEach(period => {
         const status = record[`period${period}`];
         counts.totalPeriods++;
         if (status && counts.hasOwnProperty(status)) {
           counts[status]++;
         }
-        if (status && status !== 'not-marked' && ['present','absent','late','half-day'].includes(status)) {
+        if (status && status !== 'not-marked' && ['present', 'absent', 'late', 'half-day'].includes(status)) {
           counts.totalMarked++;
         }
       });
@@ -821,7 +821,7 @@ const AttendanceReport = () => {
 
   const exportToCSV = () => {
     if (!reports.length) return;
-    const periodsToUse = periods && periods.length ? periods : [1,2,3,4,5,6,7];
+    const periodsToUse = periods && periods.length ? periods : [1, 2, 3, 4, 5, 6, 7];
     const periodDuration = 1; // 1 hour per period
     const headers = [
       'Student Name',
@@ -840,10 +840,10 @@ const AttendanceReport = () => {
       const attended = periodStatuses.filter(status => ['present', 'late', 'half-day'].includes((status || '').toLowerCase())).length * periodDuration;
       const percentage = scheduled > 0 ? ((attended / scheduled) * 100).toFixed(2) : '0.00';
       return [
-      r.fullName || r.student?.fullName || '-',
-      r.rollNumber || r.student?.rollNumber || '-',
-      r.className || r.student?.className || '-',
-      r.section || r.student?.section || '-',
+        r.fullName || r.student?.fullName || '-',
+        r.rollNumber || r.student?.rollNumber || '-',
+        r.className || r.student?.className || '-',
+        r.section || r.student?.section || '-',
         ...periodStatuses,
         scheduled,
         attended,
@@ -912,7 +912,7 @@ const AttendanceReport = () => {
   const statusCounts = getStatusCounts();
 
   const getStudentDayStatus = (record) => {
-    const periods = [1,2,3,4,5,6,7];
+    const periods = [1, 2, 3, 4, 5, 6, 7];
     const statuses = periods.map(period => record[`period${period}`]);
     const marked = statuses.filter(s => s && s !== 'not-marked');
     if (marked.length === 0) return 'not-marked';
@@ -935,7 +935,8 @@ const AttendanceReport = () => {
 
     reports.forEach(record => {
       counts.total++;
-      const status = record.status || 'not-marked';
+      // Calculate status from period data
+      const status = getStudentDayStatus(record);
       if (counts.hasOwnProperty(status)) {
         counts[status]++;
       } else {
@@ -993,18 +994,18 @@ const AttendanceReport = () => {
           </div>
           <div className="filter-group">
             <label>Email Address</label>
-            <input 
-              type="email" 
-              value={emailAddress} 
+            <input
+              type="email"
+              value={emailAddress}
               onChange={e => setEmailAddress(e.target.value)}
               placeholder="Enter email to send report"
               style={{ width: '250px' }}
             />
           </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
-            <button 
-              className="export-btn" 
-              onClick={fetchAttendanceReport} 
+            <button
+              className="export-btn"
+              onClick={fetchAttendanceReport}
               disabled={loading || !selectedClass || !selectedSection || !selectedDate}
               style={{ backgroundColor: '#007bff' }}
             >
@@ -1013,19 +1014,19 @@ const AttendanceReport = () => {
             <button className="export-btn" onClick={exportToCSV} disabled={!reports.length} style={{ marginLeft: 8, backgroundColor: '#17a2b8' }}>
               Export CSV
             </button>
-            <button 
-              className="export-btn" 
+            <button
+              className="export-btn"
               style={{ marginLeft: 8, backgroundColor: '#28a745' }}
               onClick={() => {
                 if (!reports || reports.length === 0) {
                   toast.error('No attendance data available to send. Please generate a report first.');
                   return;
                 }
-                
+
                 console.log('Reports data before processing:', reports);
-                
+
                 // Use the same logic as exportToCSV function
-                const periodsToUse = periods && periods.length ? periods : [1,2,3,4,5,6,7];
+                const periodsToUse = periods && periods.length ? periods : [1, 2, 3, 4, 5, 6, 7];
                 const periodDuration = 1; // 1 hour per period
                 const headers = [
                   'Student Name',
@@ -1037,7 +1038,7 @@ const AttendanceReport = () => {
                   'Attended Hours',
                   'Attendance %'
                 ];
-                
+
                 const rows = reports.map(r => {
                   console.log('Processing report record:', r);
                   const periodStatuses = periodsToUse.map(period => r[`period${period}`] || '-');
@@ -1056,15 +1057,15 @@ const AttendanceReport = () => {
                     percentage
                   ];
                 });
-                
+
                 console.log('Generated rows:', rows);
                 console.log('Generated headers:', headers);
-                
-                const emailData = { 
-                  headers, 
-                  rows, 
-                  date: selectedDate, 
-                  className: selectedClass, 
+
+                const emailData = {
+                  headers,
+                  rows,
+                  date: selectedDate,
+                  className: selectedClass,
                   section: selectedSection,
                   totalStudents: reports.length,
                   generatedAt: new Date().toLocaleString('en-IN')
@@ -1097,11 +1098,11 @@ const AttendanceReport = () => {
           </div>
           <div className="filter-group">
             <label>Start Date</label>
-            <input 
-              type="date" 
-              value={startDate} 
+            <input
+              type="date"
+              value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              style={{ 
+              style={{
                 borderColor: dateRangeError ? '#dc3545' : '#ddd',
                 borderWidth: dateRangeError ? '2px' : '1px'
               }}
@@ -1109,11 +1110,11 @@ const AttendanceReport = () => {
           </div>
           <div className="filter-group">
             <label>End Date</label>
-            <input 
-              type="date" 
-              value={endDate} 
+            <input
+              type="date"
+              value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              style={{ 
+              style={{
                 borderColor: dateRangeError ? '#dc3545' : '#ddd',
                 borderWidth: dateRangeError ? '2px' : '1px'
               }}
@@ -1121,9 +1122,9 @@ const AttendanceReport = () => {
           </div>
           {dateRangeError && (
             <div className="filter-group" style={{ gridColumn: '1 / -1', marginTop: '-10px' }}>
-              <div style={{ 
-                color: '#dc3545', 
-                fontSize: '12px', 
+              <div style={{
+                color: '#dc3545',
+                fontSize: '12px',
                 fontWeight: 'bold',
                 backgroundColor: '#f8d7da',
                 padding: '5px 10px',
@@ -1135,7 +1136,7 @@ const AttendanceReport = () => {
               }}>
                 <span>⚠️ {dateRangeError}</span>
                 {dateRangeError.includes('Start date cannot be after end date') && (
-                  <button 
+                  <button
                     onClick={fixDateRange}
                     style={{
                       backgroundColor: '#28a745',
@@ -1155,42 +1156,42 @@ const AttendanceReport = () => {
           )}
           <div className="filter-group">
             <label>Email Address</label>
-            <input 
-              type="email" 
-              value={emailAddress} 
+            <input
+              type="email"
+              value={emailAddress}
               onChange={e => setEmailAddress(e.target.value)}
               placeholder="Enter email to send report"
               style={{ width: '250px' }}
             />
           </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
-            <button 
-              className="export-btn" 
-              onClick={fetchRangeReport} 
+            <button
+              className="export-btn"
+              onClick={fetchRangeReport}
               disabled={loading || !selectedClass || !selectedSection || !startDate || !endDate || !!dateRangeError}
               style={{ backgroundColor: '#007bff' }}
             >
               {loading ? 'Loading...' : 'Fetch Period Report'}
             </button>
-            <button 
-              className="export-btn" 
-              onClick={fetchDateRangeReport} 
+            <button
+              className="export-btn"
+              onClick={fetchDateRangeReport}
               disabled={loading || !selectedClass || !selectedSection || !startDate || !endDate || !!dateRangeError}
               style={{ marginLeft: 8, backgroundColor: '#6f42c1' }}
             >
               {loading ? 'Loading...' : 'Fetch Summary Report'}
             </button>
-            <button 
-              className="export-btn" 
-              onClick={debugAttendanceData} 
+            <button
+              className="export-btn"
+              onClick={debugAttendanceData}
               disabled={!selectedClass || !selectedSection || !startDate || !endDate || !!dateRangeError}
               style={{ marginLeft: 8, backgroundColor: '#dc3545' }}
             >
               Debug Data
             </button>
-            <button 
-              className="export-btn" 
-              onClick={testConnection} 
+            <button
+              className="export-btn"
+              onClick={testConnection}
               style={{ marginLeft: 8, backgroundColor: '#6c757d' }}
             >
               Test Connection
@@ -1217,18 +1218,18 @@ const AttendanceReport = () => {
           </div>
           <div className="filter-group">
             <label>Email Address</label>
-            <input 
-              type="email" 
-              value={emailAddress} 
+            <input
+              type="email"
+              value={emailAddress}
               onChange={e => setEmailAddress(e.target.value)}
               placeholder="Enter email to send report"
               style={{ width: '250px' }}
             />
           </div>
           <div className="filter-group" style={{ alignSelf: 'end' }}>
-            <button 
-              className="export-btn" 
-              onClick={fetchStudentAttendance} 
+            <button
+              className="export-btn"
+              onClick={fetchStudentAttendance}
               disabled={loading || !selectedStudent || !startDate || !endDate}
               style={{ backgroundColor: '#007bff' }}
             >
@@ -1237,8 +1238,8 @@ const AttendanceReport = () => {
             <button className="export-btn" onClick={exportToCSV} disabled={!reports.length} style={{ marginLeft: 8, backgroundColor: '#17a2b8' }}>
               Export CSV
             </button>
-            <button 
-              className="export-btn" 
+            <button
+              className="export-btn"
               style={{ marginLeft: 8, backgroundColor: '#28a745' }}
               onClick={() => {
                 if (!reports.length) return;
@@ -1250,11 +1251,11 @@ const AttendanceReport = () => {
                   r.status,
                   r.remarks || ''
                 ]);
-                sendReportViaEmail('student', { 
-                  headers, 
-                  rows, 
+                sendReportViaEmail('student', {
+                  headers,
+                  rows,
                   studentName: selectedStudentData?.fullName || 'Unknown Student',
-                  startDate, 
+                  startDate,
                   endDate,
                   totalRecords: reports.length,
                   generatedAt: new Date().toLocaleString('en-IN')
@@ -1280,8 +1281,8 @@ const AttendanceReport = () => {
                     <th>Roll Number</th>
                     <th>Class</th>
                     <th>Section</th>
-                    {(periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
-                      <th key={'period' + period}>P{period}<br /><span style={{fontWeight:400, fontSize:'11px'}}>{periodTimings[period]}</span></th>
+                    {(periods && periods.length ? periods : [1, 2, 3, 4, 5, 6, 7]).map(period => (
+                      <th key={'period' + period}>P{period}<br /><span style={{ fontWeight: 400, fontSize: '11px' }}>{periodTimings[period]}</span></th>
                     ))}
                   </tr>
                 </thead>
@@ -1292,7 +1293,7 @@ const AttendanceReport = () => {
                       <td>{r.rollNumber || r.student?.rollNumber || '-'}</td>
                       <td>{r.className || r.student?.className || '-'}</td>
                       <td>{r.section || r.student?.section || '-'}</td>
-                      {(periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                      {(periods && periods.length ? periods : [1, 2, 3, 4, 5, 6, 7]).map(period => (
                         <td key={`${r.studentId || idx}-p${period}`}>{r[`period${period}`] || '-'}</td>
                       ))}
                     </tr>
@@ -1317,7 +1318,7 @@ const AttendanceReport = () => {
               )}
             </div>
           )}
-          
+
           {/* Total Attendance Summary for Range Report */}
           {rangeReport.length > 0 && (
             <div className="total-attendance-summary">
@@ -1332,17 +1333,15 @@ const AttendanceReport = () => {
                       {student.rollNumber} - {student.className} {student.section}
                     </div>
                     {student.totalAttendance && student.totalAttendance.marked > 0 ? (
-                      <div className={`attendance-summary-box ${
-                        student.totalAttendance.percentage >= 75 ? 'good' : 
-                        student.totalAttendance.percentage >= 50 ? 'average' : 'poor'
-                      }`}>
+                      <div className={`attendance-summary-box ${student.totalAttendance.percentage >= 75 ? 'good' :
+                          student.totalAttendance.percentage >= 50 ? 'average' : 'poor'
+                        }`}>
                         <span className="attendance-label">
                           Total Attendance:
                         </span>
-                        <span className={`attendance-value ${
-                          student.totalAttendance.percentage >= 75 ? 'good' : 
-                          student.totalAttendance.percentage >= 50 ? 'average' : 'poor'
-                        }`}>
+                        <span className={`attendance-value ${student.totalAttendance.percentage >= 75 ? 'good' :
+                            student.totalAttendance.percentage >= 50 ? 'average' : 'poor'
+                          }`}>
                           {student.totalAttendance.present}/{student.totalAttendance.marked} ({student.totalAttendance.percentage}%)
                         </span>
                       </div>
@@ -1361,7 +1360,7 @@ const AttendanceReport = () => {
               </div>
             </div>
           )}
-          
+
           {/* Overall Statistics for Range Report */}
           {rangeReport.length > 0 && (
             <div className="overall-statistics">
@@ -1378,14 +1377,14 @@ const AttendanceReport = () => {
                     studentsWithPoorAttendance: 0, // < 50%
                     studentsWithNoAttendance: 0 // no attendance data
                   };
-                  
+
                   // Calculate statistics from the range report data
                   rangeReport.forEach(student => {
                     // Check if student has totalAttendance data
                     if (student.totalAttendance && student.totalAttendance.marked > 0) {
                       stats.totalPresentPeriods += student.totalAttendance.present || 0;
                       stats.totalMarkedPeriods += student.totalAttendance.marked || 0;
-                      
+
                       const percentage = student.totalAttendance.percentage || 0;
                       if (percentage >= 75) {
                         stats.studentsWithGoodAttendance++;
@@ -1399,7 +1398,7 @@ const AttendanceReport = () => {
                       stats.studentsWithNoAttendance++;
                     }
                   });
-                  
+
                   // If we have backend overallStats, use them for verification
                   if (window.lastRangeReportData && window.lastRangeReportData.overallStats) {
                     const backendStats = window.lastRangeReportData.overallStats;
@@ -1412,11 +1411,11 @@ const AttendanceReport = () => {
                       }
                     });
                   }
-                  
+
                   // Calculate average attendance percentage
-                  stats.averageAttendance = stats.totalMarkedPeriods > 0 ? 
+                  stats.averageAttendance = stats.totalMarkedPeriods > 0 ?
                     Math.round((stats.totalPresentPeriods / stats.totalMarkedPeriods) * 100) : 0;
-                  
+
                   // Debug logging
                   console.log('Overall Statistics Calculation:', {
                     totalStudents: stats.totalStudents,
@@ -1426,7 +1425,7 @@ const AttendanceReport = () => {
                     totalMarkedPeriods: stats.totalMarkedPeriods,
                     averageAttendance: stats.averageAttendance
                   });
-                  
+
                   return [
                     { label: 'Total Students', value: stats.totalStudents, color: '#2196f3' },
                     { label: 'Total Present Periods', value: stats.totalPresentPeriods, color: '#4caf50' },
@@ -1450,20 +1449,20 @@ const AttendanceReport = () => {
               </div>
             </div>
           )}
-          
+
           {/* Export buttons for range report */}
           {rangeReport.length > 0 && (
             <div style={{ margin: '16px 0', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <button 
-                className="export-btn" 
+              <button
+                className="export-btn"
                 onClick={exportRangeCSV}
                 style={{ backgroundColor: '#17a2b8' }}
               >
                 <FaDownload style={{ marginRight: '4px' }} />
                 Export CSV
               </button>
-              <button 
-                className="export-btn" 
+              <button
+                className="export-btn"
                 onClick={exportRangeExcel}
                 style={{ backgroundColor: '#28a745' }}
               >
@@ -1471,22 +1470,22 @@ const AttendanceReport = () => {
                 Export Excel
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '16px' }}>
-                <input 
-                  type="email" 
-                  value={emailAddress} 
+                <input
+                  type="email"
+                  value={emailAddress}
                   onChange={e => setEmailAddress(e.target.value)}
                   placeholder="Enter email to send report"
                   style={{ width: '250px', padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px' }}
                 />
-                <button 
-                  className="export-btn" 
+                <button
+                  className="export-btn"
                   style={{ backgroundColor: '#ffc107', color: '#000' }}
                   onClick={() => {
                     if (!rangeReport.length || !rangeDates.length || !periods) {
                       toast.error('No data available to send. Please generate a report first.');
                       return;
                     }
-                    
+
                     // Use the same logic as exportRangeCSV function
                     const headers = ['Student Name', 'Roll Number', 'Class', 'Section'];
                     rangeDates.forEach(date => {
@@ -1496,7 +1495,7 @@ const AttendanceReport = () => {
                     });
                     // Add total attendance columns
                     headers.push('Total Present Periods', 'Total Marked Periods', 'Total Attendance %');
-                    
+
                     const rows = rangeReport.map(r => {
                       const row = [r.fullName, r.rollNumber, r.className, r.section];
                       if (r.attendance) {
@@ -1524,15 +1523,15 @@ const AttendanceReport = () => {
                       }
                       return row;
                     });
-                    
+
                     console.log('Range report email data:', { headers, rows, rangeReport });
-                    
-                    sendReportViaEmail('range', { 
-                      headers, 
-                      rows, 
-                      startDate, 
-                      endDate, 
-                      className: selectedClass, 
+
+                    sendReportViaEmail('range', {
+                      headers,
+                      rows,
+                      startDate,
+                      endDate,
+                      className: selectedClass,
                       section: selectedSection,
                       totalStudents: rangeReport.length,
                       generatedAt: new Date().toLocaleString('en-IN')
@@ -1545,7 +1544,7 @@ const AttendanceReport = () => {
               </div>
             </div>
           )}
-          
+
           <div className="attendance-table-container">
             {loading ? <div className="loading-message">Loading...</div> : (
               rangeReport.length ? (
@@ -1556,7 +1555,7 @@ const AttendanceReport = () => {
                       <th>Roll Number</th>
                       <th>Class</th>
                       <th>Section</th>
-                      {rangeDates && (periods && periods.length ? periods : [1,2,3,4,5,6,7]) && rangeDates.map(date => (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                      {rangeDates && (periods && periods.length ? periods : [1, 2, 3, 4, 5, 6, 7]) && rangeDates.map(date => (periods && periods.length ? periods : [1, 2, 3, 4, 5, 6, 7]).map(period => (
                         <th key={date + '-p' + period}>
                           {date} P{period}
                         </th>
@@ -1574,12 +1573,12 @@ const AttendanceReport = () => {
                           // Handle different attendance data structures
                           if (Array.isArray(r.attendance)) {
                             // Range report structure: array of date objects
-                            return r.attendance.map((a, aidx) => (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                            return r.attendance.map((a, aidx) => (periods && periods.length ? periods : [1, 2, 3, 4, 5, 6, 7]).map(period => (
                               <td key={aidx + '-p' + period}>{a[`period${period}`] || '-'}</td>
                             )));
                           } else if (typeof r.attendance === 'object' && r.attendance !== null) {
                             // Date range report structure: object with date keys
-                            return rangeDates && rangeDates.map((date, dateIdx) => (periods && periods.length ? periods : [1,2,3,4,5,6,7]).map(period => (
+                            return rangeDates && rangeDates.map((date, dateIdx) => (periods && periods.length ? periods : [1, 2, 3, 4, 5, 6, 7]).map(period => (
                               <td key={dateIdx + '-p' + period}>{r.attendance[date] || '-'}</td>
                             )));
                           }
@@ -1758,8 +1757,8 @@ const AttendanceReport = () => {
       {reports.length > 0 && reportType === 'student' && (
         <div className="report-table-container">
           <h3>
-            Detailed Report - {selectedStudentDetails?.fullName || reports[0]?.studentName || reports[0]?.student?.fullName || 'Student'} 
-            ({selectedStudentDetails?.rollNumber || reports[0]?.rollNumber || reports[0]?.student?.rollNumber || 'N/A'}) 
+            Detailed Report - {selectedStudentDetails?.fullName || reports[0]?.studentName || reports[0]?.student?.fullName || 'Student'}
+            ({selectedStudentDetails?.rollNumber || reports[0]?.rollNumber || reports[0]?.student?.rollNumber || 'N/A'})
             {startDate && endDate ? `(${startDate} to ${endDate})` : `(${new Date().toLocaleDateString()})`}
           </h3>
           <table className="report-table">

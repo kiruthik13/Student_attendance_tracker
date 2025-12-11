@@ -92,13 +92,18 @@ function App() {
         position="top-right"
         autoClose={5000}
         hideProgressBar={false}
-        newestOnTop={false}
+        newestOnTop={true}
         closeOnClick
         rtl={false}
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="light"
+        theme="dark"
+        limit={3}
+        style={{
+          fontSize: '15px',
+          fontWeight: '500',
+        }}
       />
     </div>
   );

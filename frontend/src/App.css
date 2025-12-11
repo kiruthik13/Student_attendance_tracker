@@ -58,8 +58,13 @@ input {
 
 /* Global animations */
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes fadeIn {
@@ -67,6 +72,7 @@ input {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -78,6 +84,7 @@ input {
     opacity: 0;
     transform: translateX(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -89,6 +96,7 @@ input {
     opacity: 0;
     transform: scale(0.9);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -129,33 +137,136 @@ input {
   animation: spin 1s linear infinite;
 }
 
-/* Toast notifications */
+/* Toast notifications - Premium Dark Theme */
 .toast-container {
   z-index: 9999;
 }
 
-.toast {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+/* Custom toast styling for dark theme */
+:root {
+  --toastify-color-dark: #1a1a2e;
+  --toastify-text-color-dark: #ffffff;
+  --toastify-color-success: #10b981;
+  --toastify-color-error: #ef4444;
+  --toastify-color-warning: #f59e0b;
+  --toastify-color-info: #3b82f6;
 }
 
-.toast-success {
-  border-left: 4px solid var(--success);
+/* Override default toast styles - High Contrast */
+.Toastify__toast {
+  background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%) !important;
+  backdrop-filter: blur(20px) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+    0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  padding: 18px 24px !important;
+  min-height: 70px !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  color: #ffffff !important;
 }
 
-.toast-error {
-  border-left: 4px solid var(--danger);
+.Toastify__toast--success {
+  border-left: 5px solid #10b981 !important;
+  background: linear-gradient(135deg, #065f46 0%, #1e293b 100%) !important;
+  box-shadow: 0 10px 40px rgba(16, 185, 129, 0.3),
+    0 0 0 1px rgba(16, 185, 129, 0.3) inset,
+    0 4px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
-.toast-warning {
-  border-left: 4px solid var(--warning);
+.Toastify__toast--error {
+  border-left: 5px solid #ef4444 !important;
+  background: linear-gradient(135deg, #7f1d1d 0%, #1e293b 100%) !important;
+  box-shadow: 0 10px 40px rgba(239, 68, 68, 0.3),
+    0 0 0 1px rgba(239, 68, 68, 0.3) inset,
+    0 4px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
-.toast-info {
-  border-left: 4px solid var(--info);
+.Toastify__toast--warning {
+  border-left: 4px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(26, 26, 46, 0.95) 50%) !important;
+}
+
+.Toastify__toast--info {
+  border-left: 4px solid #3b82f6 !important;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(26, 26, 46, 0.95) 50%) !important;
+}
+
+/* Progress bar styling - Enhanced visibility */
+.Toastify__progress-bar {
+  height: 5px !important;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 0 0 16px 16px !important;
+  opacity: 1 !important;
+}
+
+.Toastify__progress-bar--success {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
+  opacity: 1 !important;
+}
+
+.Toastify__progress-bar--error {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%) !important;
+  opacity: 1 !important;
+}
+
+.Toastify__progress-bar--warning {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%) !important;
+  opacity: 1 !important;
+}
+
+.Toastify__progress-bar--info {
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%) !important;
+  opacity: 1 !important;
+}
+
+/* Close button styling */
+.Toastify__close-button {
+  color: rgba(255, 255, 255, 0.9) !important;
+  opacity: 0.9 !important;
+  transition: all 0.3s ease !important;
+  font-size: 18px !important;
+}
+
+.Toastify__close-button:hover {
+  opacity: 1 !important;
+  color: rgba(255, 255, 255, 1) !important;
+  transform: scale(1.1) !important;
+}
+
+/* Toast body styling - Enhanced visibility */
+.Toastify__toast-body {
+  padding: 0 !important;
+  line-height: 1.6 !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  color: #ffffff !important;
+}
+
+/* Ensure text is always white and visible */
+.Toastify__toast-body>div,
+.Toastify__toast-body strong,
+.Toastify__toast-body p {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Animation enhancements */
+@keyframes toastSlideIn {
+  from {
+    transform: translate3d(110%, 0, 0);
+    opacity: 0;
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+.Toastify__toast {
+  animation: toastSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
 }
 
 /* Modal styles */
@@ -432,21 +543,21 @@ input {
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .modal-content {
     width: 95%;
     padding: var(--space-4);
   }
-  
+
   .form-container {
     padding: var(--space-6);
     margin: var(--space-4);
   }
-  
+
   .table-container {
     overflow-x: auto;
   }
-  
+
   .table {
     min-width: 600px;
   }
@@ -457,10 +568,8 @@ input {
   .no-print {
     display: none !important;
   }
-  
+
   .print-break {
     page-break-before: always;
   }
 }
-
-
