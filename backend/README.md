@@ -253,6 +253,66 @@ Content-Type: application/json
 | `BCRYPT_SALT_ROUNDS` | Password hashing rounds | 12 |
 | `JWT_EXPIRES_IN` | JWT token expiration | 7d |
 
+## Student Management
+
+### Automatic User Account Creation
+
+When an admin creates a student record, the system automatically creates a User account for the student with the following features:
+
+- **Default Password**: `student123` (if no custom password is provided)
+- **Role**: Automatically set to `student`
+- **Email**: Uses the student's email for login
+- **Active Status**: Account is active by default
+
+### Student Management API Endpoints
+
+#### Create Student (Admin Only)
+```http
+POST /api/students
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "fullName": "John Doe",
+  "email": "john.doe@example.com",
+  "rollNumber": "22ISR001",
+  "className": "MSC",
+  "section": "A",
+  "phoneNumber": "1234567890",
+  "parentName": "Jane Doe",
+  "parentPhone": "0987654321",
+  "address": "123 Main St",
+  "password": "custom123"  // Optional - defaults to "student123"
+}
+```
+
+#### Get All Students (Admin Only)
+```http
+GET /api/students?search=john&class=MSC&section=A
+Authorization: Bearer {admin_token}
+```
+
+#### Update Student (Admin Only)
+```http
+PUT /api/students/{id}
+Authorization: Bearer {admin_token}
+```
+
+#### Delete Student (Admin Only)
+```http
+DELETE /api/students/{id}
+Authorization: Bearer {admin_token}
+```
+
+> [!IMPORTANT]
+> **Default Password Security**: Students are created with the default password `student123`. For production environments, consider implementing:
+> - Password change requirement on first login
+> - Email notification to students with login credentials
+> - Password strength requirements for student-initiated changes
+
+> [!NOTE]
+> When a student is deleted, both the Student profile and the associated User account are removed from the database.
+
 ## Development Notes
 
 - The backend uses MongoDB as the database
@@ -261,6 +321,7 @@ Content-Type: application/json
 - Input validation is implemented using express-validator
 - CORS is configured to allow frontend requests
 - Error handling is comprehensive and secure
+- Student User accounts are automatically created with default password `student123`
 
 ## Next Steps
 
