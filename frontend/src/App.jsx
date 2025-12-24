@@ -5,6 +5,8 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Auth Components
 import Login from './components/Auth/Login';
+import StudentLogin from './components/Auth/StudentLogin';
+import AdminLogin from './components/Auth/AdminLogin';
 import Register from './components/Auth/Register';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 
@@ -27,6 +29,8 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/student-login" element={<StudentLogin />} />
+        <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/register" element={<Register />} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />

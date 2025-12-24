@@ -6,12 +6,12 @@ import { MdEmail } from 'react-icons/md';
 import { API_ENDPOINTS } from '../../config/api';
 import './Auth.css';
 
-const Login = () => {
+const Login = ({ fixedRole }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    role: 'student' // Default role
+    role: fixedRole || 'student' // Use fixedRole if provided, otherwise default to 'student'
   });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -91,9 +91,15 @@ const Login = () => {
 
         // Verify role matches
         if (formData.role !== user.role) {
-          // Optional: You could block login if roles don't match, 
-          // but for now let's just warn or allow if they are admin
           console.warn(`Warning: Login role ${formData.role} does not match user role ${user.role}`);
+
+          // If fixedRole is set, enforce strict role matching
+          if (fixedRole) {
+            const roleLabel = fixedRole === 'admin' ? 'Admin' : 'Student';
+            setErrors({ general: `Invalid credentials for ${roleLabel} login. Please use the correct login page.` });
+            setIsLoading(false);
+            return;
+          }
         }
 
         if (user.role === 'admin') {
@@ -163,23 +169,25 @@ const Login = () => {
             </div>
           )}
 
-          {/* Role Selection */}
-          <div className="role-selector">
-            <button
-              type="button"
-              className={`role-btn ${formData.role === 'student' ? 'active' : ''}`}
-              onClick={() => handleRoleChange('student')}
-            >
-              <FaUserGraduate /> Student
-            </button>
-            <button
-              type="button"
-              className={`role-btn ${formData.role === 'admin' ? 'active' : ''}`}
-              onClick={() => handleRoleChange('admin')}
-            >
-              <FaUserShield /> Admin
-            </button>
-          </div>
+          {/* Role Selection - Hidden when fixedRole is set */}
+          {!fixedRole && (
+            <div className="role-selector">
+              <button
+                type="button"
+                className={`role-btn ${formData.role === 'student' ? 'active' : ''}`}
+                onClick={() => handleRoleChange('student')}
+              >
+                <FaUserGraduate /> Student
+              </button>
+              <button
+                type="button"
+                className={`role-btn ${formData.role === 'admin' ? 'active' : ''}`}
+                onClick={() => handleRoleChange('admin')}
+              >
+                <FaUserShield /> Admin
+              </button>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label" htmlFor="email">
