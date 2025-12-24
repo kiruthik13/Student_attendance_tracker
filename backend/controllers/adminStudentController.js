@@ -4,6 +4,8 @@ const User = require('../models/User');
 // Create a new student and user account
 exports.createStudent = async (req, res) => {
     try {
+        console.log('📝 Creating student - Request body:', JSON.stringify(req.body, null, 2));
+
         const {
             fullName,
             email,
@@ -17,18 +19,33 @@ exports.createStudent = async (req, res) => {
             password
         } = req.body;
 
+        // Validate required fields
+        if (!fullName || !email || !rollNumber || !className || !section) {
+            console.error('❌ Validation failed - Missing required fields');
+            return res.status(400).json({
+                message: 'Missing required fields',
+                required: ['fullName', 'email', 'rollNumber', 'className', 'section'],
+                received: { fullName, email, rollNumber, className, section }
+            });
+        }
+
+        console.log('✅ Validation passed - Checking for existing student');
+
         // Check if student already exists
         const existingStudent = await Student.findOne({
             $or: [{ email: email.toLowerCase() }, { rollNumber }]
         });
 
         if (existingStudent) {
+            console.log('⚠️ Student already exists:', existingStudent.email);
             return res.status(400).json({
                 message: existingStudent.email === email.toLowerCase()
                     ? 'Student with this email already exists'
                     : 'Student with this roll number already exists'
             });
         }
+
+        console.log('✅ No existing student found - Creating new student profile');
 
         // Create Student Profile
         const student = new Student({
@@ -44,10 +61,14 @@ exports.createStudent = async (req, res) => {
         });
 
         const savedStudent = await student.save();
+        console.log('✅ Student profile created:', savedStudent._id);
 
         // Check if User account exists, if not create one
+        console.log('🔍 Checking for existing User account');
         let user = await User.findOne({ email: email.toLowerCase() });
+
         if (!user) {
+            console.log('📝 Creating User account with default password');
             user = new User({
                 fullName,
                 email,
@@ -56,18 +77,28 @@ exports.createStudent = async (req, res) => {
                 isActive: true
             });
             await user.save();
+            console.log('✅ User account created:', user._id);
+        } else {
+            console.log('ℹ️ User account already exists:', user._id);
         }
 
+        console.log('🎉 Student creation completed successfully');
         res.status(201).json({
             message: 'Student created successfully',
             student: savedStudent
         });
 
     } catch (error) {
-        console.error('Create student error:', error);
+        console.error('❌ Create student error:', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+
         res.status(500).json({
             message: 'Failed to create student',
-            error: error.message
+            error: error.message,
+            errorName: error.name,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
